@@ -61,7 +61,8 @@ const INITIAL_ROOMS: Room[] = [
       'https://drive.google.com/uc?export=view&id=1bODjlpAZmB7wM2wU4mwrrRYzoyboJDqE',
       'https://drive.google.com/uc?export=view&id=1M0rr1O6gkeLQ5-bxUMQuPSIjUCvzA9pL',
     ],
-    amenities: ['Wifi', 'เครื่องปรับอากาศ', 'ระเบียงส่วนตัว', 'อาหารเช้า', 'ตู้เย็น', 'ไดร์เป่าผม']
+    amenities: ['Wifi', 'เครื่องปรับอากาศ', 'ระเบียงส่วนตัว', 'อาหารเช้า', 'ตู้เย็น', 'ไดร์เป่าผม'],
+    capacity: '2 ท่าน'
   },
   {
     id: 'tree-house',
@@ -75,7 +76,8 @@ const INITIAL_ROOMS: Room[] = [
       'https://picsum.photos/seed/treehouse2/800/600',
       'https://picsum.photos/seed/treehouse3/800/600',
     ],
-    amenities: ['Wifi', 'อ่างอาบน้ำ', 'วิวภูเขา', 'อาหารเช้า', 'มินิบาร์', 'ระเบียงชมดาว']
+    amenities: ['Wifi', 'อ่างอาบน้ำ', 'วิวภูเขา', 'อาหารเช้า', 'มินิบาร์', 'ระเบียงชมดาว'],
+    capacity: '2 ท่าน'
   },
   {
     id: 'misty-cabin',
@@ -89,7 +91,8 @@ const INITIAL_ROOMS: Room[] = [
       'https://picsum.photos/seed/mist2/800/600',
       'https://picsum.photos/seed/mist3/800/600',
     ],
-    amenities: ['Wifi', 'เครื่องทำน้ำอุ่น', 'จุดชมวิว', 'อาหารเช้า', 'กาต้มน้ำไฟฟ้า', 'พื้นที่นั่งเล่น']
+    amenities: ['Wifi', 'เครื่องทำน้ำอุ่น', 'จุดชมวิว', 'อาหารเช้า', 'กาต้มน้ำไฟฟ้า', 'พื้นที่นั่งเล่น'],
+    capacity: '2 ท่าน'
   },
   {
     id: 'wood-suite',
@@ -103,7 +106,8 @@ const INITIAL_ROOMS: Room[] = [
       'https://picsum.photos/seed/wood2/800/600',
       'https://picsum.photos/seed/wood3/800/600',
     ],
-    amenities: ['Wifi', 'Smart TV', 'มินิบาร์', 'อาหารเช้าพรีเมียม', 'อ่างอาบน้ำจากุซซี่', 'เครื่องชงกาแฟ']
+    amenities: ['Wifi', 'Smart TV', 'มินิบาร์', 'อาหารเช้าพรีเมียม', 'อ่างอาบน้ำจากุซซี่', 'เครื่องชงกาแฟ'],
+    capacity: '2 ท่าน'
   }
 ];
 
@@ -196,6 +200,16 @@ export default function App() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [urlUserId, setUrlUserId] = useState<string>('');
+
+  // Extract userId from URL parameters
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const userId = params.get('userId');
+    if (userId) {
+      setUrlUserId(userId);
+    }
+  }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -238,6 +252,7 @@ export default function App() {
 
     const bookingData = {
       bookingId: `BK-${Math.floor(100000 + Math.random() * 900000)}`,
+      userId: urlUserId,
       customerName,
       phone,
       roomName: selectedRoom.name,
@@ -445,6 +460,9 @@ export default function App() {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-8">
+                {/* Hidden userId input */}
+                <input type="hidden" name="userId" value={urlUserId} />
+
                 {/* Room Summary if selected */}
                 {selectedRoom && (
                   <motion.div 
