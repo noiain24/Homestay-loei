@@ -201,13 +201,18 @@ export default function App() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [urlUserId, setUrlUserId] = useState<string>('');
+  const [urlOwner, setUrlOwner] = useState<string>('');
 
-  // Extract userId from URL parameters
+  // Extract userId and owner from URL parameters
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const userId = params.get('userId');
     if (userId) {
       setUrlUserId(userId);
+    }
+    const owner = params.get('owner');
+    if (owner) {
+      setUrlOwner(owner);
     }
   }, []);
 
@@ -253,6 +258,7 @@ export default function App() {
     const bookingData = {
       bookingId: `BK-${Math.floor(100000 + Math.random() * 900000)}`,
       userId: urlUserId,
+      owner: urlOwner,
       customerName,
       phone,
       roomName: selectedRoom.name,
@@ -313,7 +319,9 @@ export default function App() {
               <div className="w-8 h-8 bg-[#2D5A27] rounded-lg flex items-center justify-center">
                 <Wind className="text-white w-5 h-5" />
               </div>
-              <span className="text-xl font-bold tracking-tight text-[#2D5A27]">Loei Misty Homestay</span>
+              <span className="text-xl font-bold tracking-tight text-[#2D5A27]">
+                {urlOwner ? `${urlOwner.charAt(0).toUpperCase() + urlOwner.slice(1)} Homestay` : 'Loei Misty Homestay'}
+              </span>
             </div>
           </div>
         </div>
@@ -329,7 +337,7 @@ export default function App() {
             className="relative text-center px-4 max-w-3xl"
           >
             <h1 className="text-4xl sm:text-6xl font-bold text-[#2D5A27] mb-4">
-              อบอุ่นเหมือนบ้าน <br />
+              {urlOwner ? `${urlOwner.charAt(0).toUpperCase() + urlOwner.slice(1)} Homestay` : 'อบอุ่นเหมือนบ้าน'} <br />
               <span className="text-[#B8860B]">ท่ามกลางสายหมอก</span>
             </h1>
             <p className="text-lg text-slate-600 mb-8 max-w-xl mx-auto">
@@ -460,8 +468,9 @@ export default function App() {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-8">
-                {/* Hidden userId input */}
+                {/* Hidden inputs */}
                 <input type="hidden" name="userId" value={urlUserId} />
+                <input type="hidden" name="owner" value={urlOwner} />
 
                 {/* Room Summary if selected */}
                 {selectedRoom && (
