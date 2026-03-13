@@ -27,7 +27,7 @@ const N8N_WEBHOOK_URL = "https://explanate-lyn-crawliest.ngrok-free.dev/webhook-
 // Master Config Sheet URL (Maps owner to Spreadsheet ID)
 // Format: https://docs.google.com/spreadsheets/d/MASTER_SHEET_ID/export?format=csv
 // Columns expected: owner, spreadsheet_id
-const MASTER_CONFIG_URL = "https://docs.google.com/spreadsheets/d/1bAJtopLJiMlQLXAg1HlK_647VI-7Uiy82yIIwO-3XVc/edit?gid=0#gid=0"; // Using current sheet as placeholder or master
+const MASTER_CONFIG_URL = "https://docs.google.com/spreadsheets/d/18enn4tE_3yCxfYha-qha6_S7ifzZ2ulRX8bnPhQrweQ/export?format=csv"; // Using current sheet as placeholder or master
 
 // Default Spreadsheet ID if owner not found or not provided
 const DEFAULT_SHEET_ID = "18enn4tE_3yCxfYha-qha6_S7ifzZ2ulRX8bnPhQrweQ";
@@ -165,23 +165,28 @@ export default function App() {
 
   // Fetch Spreadsheet ID from Master Config based on owner
   useEffect(() => {
+    console.log('Current Owner from URL:', urlOwner);
     if (!urlOwner) {
+      console.log('No owner provided, using default sheet ID');
       setCurrentSheetId(DEFAULT_SHEET_ID);
       return;
     }
 
+    console.log('Fetching Master Config from:', MASTER_CONFIG_URL);
     Papa.parse(MASTER_CONFIG_URL, {
       download: true,
       header: true,
       complete: (results) => {
+        console.log('Master Config Data:', results.data);
         const config = results.data.find((row: any) => 
-          row.owner?.toLowerCase() === urlOwner.toLowerCase()
+          row.owner?.toString().trim().toLowerCase() === urlOwner.trim().toLowerCase()
         );
         
         if (config && config.spreadsheet_id) {
-          setCurrentSheetId(config.spreadsheet_id);
+          console.log('Found config for owner:', urlOwner, 'Sheet ID:', config.spreadsheet_id);
+          setCurrentSheetId(config.spreadsheet_id.trim());
         } else {
-          console.warn(`Owner "${urlOwner}" not found in Master Config. Using default.`);
+          console.warn(`Owner "${urlOwner}" not found in Master Config. Available owners:`, results.data.map((r: any) => r.owner));
           setCurrentSheetId(DEFAULT_SHEET_ID);
         }
       },
@@ -195,12 +200,15 @@ export default function App() {
   // Fetch rooms from Google Sheets
   useEffect(() => {
     const sheetUrl = `https://docs.google.com/spreadsheets/d/${currentSheetId}/export?format=csv`;
+    console.log('Fetching Rooms from Sheet URL:', sheetUrl);
     setIsRoomsLoading(true);
+    setRooms([]); // Clear existing rooms to avoid showing old data
 
     Papa.parse(sheetUrl, {
       download: true,
       header: true,
       complete: (results) => {
+        console.log('Raw Sheet Data:', results.data);
         const parsedRooms = results.data.map((row: any) => {
           // Clean price: remove "บาท/คืน", commas, and spaces
           const rawPrice = row.Price_Per_Night || row.price || "0";
@@ -236,8 +244,11 @@ export default function App() {
           };
         }).filter((room: any) => room.id);
 
+        console.log('Parsed Rooms Count:', parsedRooms.length);
         if (parsedRooms.length > 0) {
           setRooms(parsedRooms);
+        } else {
+          console.warn('No valid rooms found in sheet data.');
         }
         setIsRoomsLoading(false);
       },
