@@ -24,9 +24,13 @@ import {
 
 const N8N_WEBHOOK_URL = "https://explanate-lyn-crawliest.ngrok-free.dev/webhook-test/booking_log";
 
-// Replace this with your Google Sheet CSV Export Link
-// Format: https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/export?format=csv
-const SHEET_URL = "https://docs.google.com/spreadsheets/d/18enn4tE_3yCxfYha-qha6_S7ifzZ2ulRX8bnPhQrweQ/export?format=csv";
+// Master Config Sheet URL (Maps owner to Spreadsheet ID)
+// Format: https://docs.google.com/spreadsheets/d/MASTER_SHEET_ID/export?format=csv
+// Columns expected: owner, spreadsheet_id
+const MASTER_CONFIG_URL = "https://docs.google.com/spreadsheets/d/18enn4tE_3yCxfYha-qha6_S7ifzZ2ulRX8bnPhQrweQ/export?format=csv"; // Using current sheet as placeholder or master
+
+// Default Spreadsheet ID if owner not found or not provided
+const DEFAULT_SHEET_ID = "18enn4tE_3yCxfYha-qha6_S7ifzZ2ulRX8bnPhQrweQ";
 
 // Theme Colors
 const COLORS = {
@@ -132,15 +136,68 @@ export default function App() {
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [viewingRoom, setViewingRoom] = useState<Room | null>(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [currentSheetId, setCurrentSheetId] = useState<string>(DEFAULT_SHEET_ID);
 
-  // Fetch rooms from Google Sheets
+  const [customerName, setCustomerName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [checkIn, setCheckIn] = useState('');
+  const [checkOut, setCheckOut] = useState('');
+  const [slipBase64, setSlipBase64] = useState<string | null>(null);
+  const [slipPreview, setSlipPreview] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [urlUserId, setUrlUserId] = useState<string>('');
+  const [urlOwner, setUrlOwner] = useState<string>('');
+
+  // Extract userId and owner from URL parameters
   useEffect(() => {
-    if (!SHEET_URL) {
-      setIsRoomsLoading(false);
+    const params = new URLSearchParams(window.location.search);
+    const userId = params.get('userId');
+    if (userId) {
+      setUrlUserId(userId);
+    }
+    const owner = params.get('owner');
+    if (owner) {
+      setUrlOwner(owner);
+    }
+  }, []);
+
+  // Fetch Spreadsheet ID from Master Config based on owner
+  useEffect(() => {
+    if (!urlOwner) {
+      setCurrentSheetId(DEFAULT_SHEET_ID);
       return;
     }
 
-    Papa.parse(SHEET_URL, {
+    Papa.parse(MASTER_CONFIG_URL, {
+      download: true,
+      header: true,
+      complete: (results) => {
+        const config = results.data.find((row: any) => 
+          row.owner?.toLowerCase() === urlOwner.toLowerCase()
+        );
+        
+        if (config && config.spreadsheet_id) {
+          setCurrentSheetId(config.spreadsheet_id);
+        } else {
+          console.warn(`Owner "${urlOwner}" not found in Master Config. Using default.`);
+          setCurrentSheetId(DEFAULT_SHEET_ID);
+        }
+      },
+      error: (error) => {
+        console.error('Error fetching Master Config:', error);
+        setCurrentSheetId(DEFAULT_SHEET_ID);
+      }
+    });
+  }, [urlOwner]);
+
+  // Fetch rooms from Google Sheets
+  useEffect(() => {
+    const sheetUrl = `https://docs.google.com/spreadsheets/d/${currentSheetId}/export?format=csv`;
+    setIsRoomsLoading(true);
+
+    Papa.parse(sheetUrl, {
       download: true,
       header: true,
       complete: (results) => {
@@ -189,32 +246,7 @@ export default function App() {
         setIsRoomsLoading(false);
       }
     });
-  }, []);
-
-  const [customerName, setCustomerName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [checkIn, setCheckIn] = useState('');
-  const [checkOut, setCheckOut] = useState('');
-  const [slipBase64, setSlipBase64] = useState<string | null>(null);
-  const [slipPreview, setSlipPreview] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [urlUserId, setUrlUserId] = useState<string>('');
-  const [urlOwner, setUrlOwner] = useState<string>('');
-
-  // Extract userId and owner from URL parameters
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const userId = params.get('userId');
-    if (userId) {
-      setUrlUserId(userId);
-    }
-    const owner = params.get('owner');
-    if (owner) {
-      setUrlOwner(owner);
-    }
-  }, []);
+  }, [currentSheetId]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
