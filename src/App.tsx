@@ -24,10 +24,21 @@ import {
 
 const N8N_WEBHOOK_URL = "https://explanate-lyn-crawliest.ngrok-free.dev/webhook-test/booking_log";
 
-// ✅ แก้ไขตรงนี้: ต้องเป็นลิงก์ export?format=csv เท่านั้น
-const MASTER_CONFIG_URL = "https://docs.google.com/spreadsheets/d/1bAJtopLJiMlQLXAg1HlK_647VI-7Uiy82yIIwO-3XVc/export?format=csv"; 
+// Master Config Sheet URL (Maps owner to Spreadsheet ID)
+// Format: https://docs.google.com/spreadsheets/d/MASTER_SHEET_ID/export?format=csv
+// Columns expected: owner, spreadsheet_id
+const MASTER_CONFIG_URL = "https://docs.google.com/spreadsheets/d/18enn4tE_3yCxfYha-qha6_S7ifzZ2ulRX8bnPhQrweQ/export?format=csv"; // Using current sheet as placeholder or master
 
+// Default Spreadsheet ID if owner not found or not provided
 const DEFAULT_SHEET_ID = "18enn4tE_3yCxfYha-qha6_S7ifzZ2ulRX8bnPhQrweQ";
+
+// Theme Colors
+const COLORS = {
+  leafGreen: "#2D5A27",
+  woodBrown: "#B8860B",
+  cloudWhite: "#F8F9FA",
+  mistyGray: "#E5E7EB",
+};
 
 interface Room {
   id: string;
@@ -41,19 +52,86 @@ interface Room {
   capacity: string;
 }
 
-// ✅ ปรับปรุงการแปลงลิงก์ Google Drive ให้รองรับรูปภาพบนเว็บ 100%
+const INITIAL_ROOMS: Room[] = [
+  {
+    id: 'river-view',
+    name: 'ห้องริมน้ำ (River View)',
+    description: 'สัมผัสบรรยากาศริมโขงที่เชียงคาน ตื่นมาพร้อมสายหมอกเหนือน้ำ',
+    fullDescription: 'ห้องพักริมแม่น้ำโขงที่ออกแบบมาเพื่อการพักผ่อนอย่างแท้จริง คุณจะได้ตื่นมาพบกับภาพทะเลหมอกที่ลอยอยู่เหนือผิวน้ำโขงในยามเช้า พร้อมระเบียงส่วนตัวที่กว้างขวางสำหรับการนั่งจิบกาแฟชมวิว ภายในตกแต่งด้วยไม้ธรรมชาติที่ให้ความรู้สึกอบอุ่นและผ่อนคลาย',
+    price: 2500,
+    image: 'https://drive.google.com/uc?export=view&id=11Nm2aToAFeSVo2fAfNEJnYgjvhbBrnoB',
+    images: [
+      'https://drive.google.com/uc?export=view&id=11Nm2aToAFeSVo2fAfNEJnYgjvhbBrnoB',
+      'https://drive.google.com/uc?export=view&id=1bODjlpAZmB7wM2wU4mwrrRYzoyboJDqE',
+      'https://drive.google.com/uc?export=view&id=1M0rr1O6gkeLQ5-bxUMQuPSIjUCvzA9pL',
+    ],
+    amenities: ['Wifi', 'เครื่องปรับอากาศ', 'ระเบียงส่วนตัว', 'อาหารเช้า', 'ตู้เย็น', 'ไดร์เป่าผม'],
+    capacity: '2 ท่าน'
+  },
+  {
+    id: 'tree-house',
+    name: 'บ้านต้นไม้ (Tree House)',
+    description: 'บ้านไม้บนต้นไม้ใหญ่ที่ภูเรือ ให้ความรู้สึกอบอุ่นและเป็นส่วนตัว',
+    fullDescription: 'ประสบการณ์การพักผ่อนที่ไม่เหมือนใครบนบ้านต้นไม้ที่โอบล้อมด้วยแมกไม้เขียวขจีที่ภูเรือ ตัวบ้านสร้างจากไม้ทั้งหลัง มีอ่างอาบน้ำที่สามารถมองเห็นวิวภูเขาได้จากหน้าต่างบานใหญ่ เหมาะสำหรับคู่รักที่ต้องการความเป็นส่วนตัวและบรรยากาศโรแมนติก',
+    price: 3200,
+    image: 'https://picsum.photos/seed/treehouse1/800/600',
+    images: [
+      'https://picsum.photos/seed/treehouse1/800/600',
+      'https://picsum.photos/seed/treehouse2/800/600',
+      'https://picsum.photos/seed/treehouse3/800/600',
+    ],
+    amenities: ['Wifi', 'อ่างอาบน้ำ', 'วิวภูเขา', 'อาหารเช้า', 'มินิบาร์', 'ระเบียงชมดาว'],
+    capacity: '2 ท่าน'
+  },
+  {
+    id: 'misty-cabin',
+    name: 'กระท่อมสายหมอก (Misty Cabin)',
+    description: 'ที่พักสไตล์นอร์ดิกที่ไฮตาก จุดชมทะเลหมอกที่สวยที่สุด',
+    fullDescription: 'กระท่อมสไตล์นอร์ดิกที่ตั้งอยู่บนเนินเขาในไฮตาก จุดที่คุณสามารถชมทะเลหมอกได้แบบ 360 องศาจากเตียงนอน การออกแบบเน้นความโปร่งโล่งด้วยกระจกบานใหญ่เพื่อให้คุณไม่พลาดทุกช่วงเวลาของธรรมชาติที่สวยงาม',
+    price: 2800,
+    image: 'https://picsum.photos/seed/mist1/800/600',
+    images: [
+      'https://picsum.photos/seed/mist1/800/600',
+      'https://picsum.photos/seed/mist2/800/600',
+      'https://picsum.photos/seed/mist3/800/600',
+    ],
+    amenities: ['Wifi', 'เครื่องทำน้ำอุ่น', 'จุดชมวิว', 'อาหารเช้า', 'กาต้มน้ำไฟฟ้า', 'พื้นที่นั่งเล่น'],
+    capacity: '2 ท่าน'
+  },
+  {
+    id: 'wood-suite',
+    name: 'เรือนไม้พรีเมียม (Wood Suite)',
+    description: 'เรือนไม้สักทองแบบดั้งเดิม ผสมผสานความทันสมัยอย่างลงตัว',
+    fullDescription: 'ที่สุดของความหรูหราในสไตล์ไทยร่วมสมัย เรือนไม้สักทองที่คัดสรรวัสดุอย่างดีที่สุด พร้อมสิ่งอำนวยความสะดวกครบครันระดับโรงแรม 5 ดาว พื้นที่ใช้สอยกว้างขวาง แยกส่วนห้องนอนและห้องนั่งเล่นอย่างชัดเจน',
+    price: 4500,
+    image: 'https://picsum.photos/seed/wood1/800/600',
+    images: [
+      'https://picsum.photos/seed/wood1/800/600',
+      'https://picsum.photos/seed/wood2/800/600',
+      'https://picsum.photos/seed/wood3/800/600',
+    ],
+    amenities: ['Wifi', 'Smart TV', 'มินิบาร์', 'อาหารเช้าพรีเมียม', 'อ่างอาบน้ำจากุซซี่', 'เครื่องชงกาแฟ'],
+    capacity: '2 ท่าน'
+  }
+];
+
+// Helper to convert Google Drive links to direct image links
 const getDirectLink = (url: string | undefined) => {
-  if (!url) return "";
-  const driveMatch = url.match(/(?:\/d\/|id=)([\w-]+)/);
-  if (driveMatch && driveMatch[1]) {
-    // ใช้ Direct Link format ที่รองรับการแสดงผลบนเบราว์เซอร์
-    return `https://drive.google.com/uc?export=view&id=${driveMatch[1]}`;
+  if (!url) return undefined;
+  if (url.includes('drive.google.com')) {
+    let fileId = '';
+    if (url.includes('/d/')) {
+      fileId = url.split('/d/')[1]?.split('/')[0];
+    } else if (url.includes('id=')) {
+      fileId = url.split('id=')[1]?.split('&')[0];
+    }
+    return fileId ? `https://lh3.googleusercontent.com/d/${fileId}` : url;
   }
   return url;
 };
 
 export default function App() {
-  const [rooms, setRooms] = useState<Room[]>([]);
+  const [rooms, setRooms] = useState<Room[]>(INITIAL_ROOMS);
   const [isRoomsLoading, setIsRoomsLoading] = useState(true);
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [viewingRoom, setViewingRoom] = useState<Room | null>(null);
@@ -72,67 +150,110 @@ export default function App() {
   const [urlUserId, setUrlUserId] = useState<string>('');
   const [urlOwner, setUrlOwner] = useState<string>('');
 
-  // 1. ดึงข้อมูลจาก URL
+  // Extract userId and owner from URL parameters
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    setUrlUserId(params.get('userId') || '');
-    setUrlOwner(params.get('owner') || '');
+    const userId = params.get('userId');
+    if (userId) {
+      setUrlUserId(userId);
+    }
+    const owner = params.get('owner');
+    if (owner) {
+      setUrlOwner(owner);
+    }
   }, []);
 
-  // 2. SaaS Logic: ค้นหา Spreadsheet ID จาก Master ตามชื่อ Owner
+  // Fetch Spreadsheet ID from Master Config based on owner
   useEffect(() => {
+    console.log('Current Owner from URL:', urlOwner);
     if (!urlOwner) {
+      console.log('No owner provided, using default sheet ID');
       setCurrentSheetId(DEFAULT_SHEET_ID);
       return;
     }
 
+    console.log('Fetching Master Config from:', MASTER_CONFIG_URL);
     Papa.parse(MASTER_CONFIG_URL, {
       download: true,
       header: true,
       complete: (results) => {
+        console.log('Master Config Data:', results.data);
         const config = results.data.find((row: any) => 
           row.owner?.toString().trim().toLowerCase() === urlOwner.trim().toLowerCase()
         );
         
         if (config && config.spreadsheet_id) {
+          console.log('Found config for owner:', urlOwner, 'Sheet ID:', config.spreadsheet_id);
           setCurrentSheetId(config.spreadsheet_id.trim());
         } else {
+          console.warn(`Owner "${urlOwner}" not found in Master Config. Available owners:`, results.data.map((r: any) => r.owner));
           setCurrentSheetId(DEFAULT_SHEET_ID);
         }
       },
-      error: () => setCurrentSheetId(DEFAULT_SHEET_ID)
+      error: (error) => {
+        console.error('Error fetching Master Config:', error);
+        setCurrentSheetId(DEFAULT_SHEET_ID);
+      }
     });
   }, [urlOwner]);
 
-  // 3. ดึงข้อมูลห้องพักจาก Google Sheets ของเจ้าของคนนั้นๆ
+  // Fetch rooms from Google Sheets
   useEffect(() => {
     const sheetUrl = `https://docs.google.com/spreadsheets/d/${currentSheetId}/export?format=csv`;
+    console.log('Fetching Rooms from Sheet URL:', sheetUrl);
     setIsRoomsLoading(true);
+    setRooms([]); // Clear existing rooms to avoid showing old data
 
     Papa.parse(sheetUrl, {
       download: true,
       header: true,
       complete: (results) => {
+        console.log('Raw Sheet Data:', results.data);
         const parsedRooms = results.data.map((row: any) => {
+          // Clean price: remove "บาท/คืน", commas, and spaces
           const rawPrice = row.Price_Per_Night || row.price || "0";
           const cleanPrice = Number(rawPrice.toString().replace(/[^\d]/g, ''));
-          const imageUrls = (row.Image_URL || row.image || "").toString().split(',').map((s: string) => s.trim()).filter(Boolean);
-          const rawCapacity = (row.Capacity || row.capacity || "").toString();
+
+          // Handle multiple links in Image_URL or Gallery_URLs
+          const imageUrlsRaw = (row.Image_URL || row.image || "").toString().split(',').map((s: string) => s.trim()).filter(Boolean);
+          const galleryUrlsRaw = row.Gallery_URLs ? row.Gallery_URLs.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
           
+          // Use Gallery_URLs if provided, otherwise use all from Image_URL
+          const allImages = galleryUrlsRaw.length > 0 ? galleryUrlsRaw : imageUrlsRaw;
+          const mainImage = imageUrlsRaw[0] || "";
+
+          // Handle Capacity and Amenities
+          // If Capacity column contains commas, it might be amenities (based on user screenshot)
+          const rawCapacity = (row.Capacity || row.capacity || "").toString();
+          const hasAmenitiesInCapacity = rawCapacity.includes(',') || rawCapacity.includes('แอร์') || rawCapacity.includes('Wifi');
+          
+          const sheetAmenities = row.Amenities 
+            ? row.Amenities.split(',').map((s: string) => s.trim()) 
+            : (hasAmenitiesInCapacity ? rawCapacity.split(',').map((s: string) => s.trim()) : []);
+
           return {
             id: row.Room_ID || row.id,
             name: row.Room_Name || row.name,
             description: row.Description || row.description,
-            fullDescription: row.Full_Description || row.description,
+            fullDescription: row.Full_Description || row.Description || row.description,
             price: cleanPrice,
-            image: imageUrls[0] || "",
-            images: imageUrls.length > 0 ? imageUrls : ["https://picsum.photos/800/600"],
-            amenities: (row.Amenities || "").toString().split(',').map((s: string) => s.trim()).filter(Boolean),
-            capacity: rawCapacity
+            image: mainImage,
+            images: allImages.length > 0 ? allImages : [mainImage],
+            amenities: sheetAmenities,
+            capacity: hasAmenitiesInCapacity ? "" : rawCapacity
           };
         }).filter((room: any) => room.id);
 
-        setRooms(parsedRooms);
+        console.log('Parsed Rooms Count:', parsedRooms.length);
+        if (parsedRooms.length > 0) {
+          setRooms(parsedRooms);
+        } else {
+          console.warn('No valid rooms found in sheet data.');
+        }
+        setIsRoomsLoading(false);
+      },
+      error: (error) => {
+        console.error('Error fetching sheet data:', error);
         setIsRoomsLoading(false);
       }
     });
@@ -143,8 +264,9 @@ export default function App() {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setSlipBase64(reader.result as string);
-        setSlipPreview(reader.result as string);
+        const base64String = reader.result as string;
+        setSlipBase64(base64String);
+        setSlipPreview(base64String);
       };
       reader.readAsDataURL(file);
     }
@@ -152,89 +274,127 @@ export default function App() {
 
   const calculateTotalPrice = () => {
     if (!selectedRoom || !checkIn || !checkOut) return 0;
-    const diff = Math.ceil(Math.abs(new Date(checkOut).getTime() - new Date(checkIn).getTime()) / (1000 * 60 * 60 * 24));
-    return diff > 0 ? diff * selectedRoom.price : selectedRoom.price;
+    const start = new Date(checkIn);
+    const end = new Date(checkOut);
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays > 0 ? diffDays * selectedRoom.price : selectedRoom.price;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+
     if (!selectedRoom || !customerName || !phone || !checkIn || !checkOut || !slipBase64) {
-      setError("กรุณากรอกข้อมูลให้ครบถ้วนและอัปโหลดสลิป");
+      setError("กรุณากรอกข้อมูลให้ครบถ้วนและอัปโหลดสลิปการโอนเงิน");
       return;
     }
+
+    // Simple phone validation (Thai format)
+    if (!/^[0-9]{9,10}$/.test(phone)) {
+      setError("กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง (9-10 หลัก)");
+      return;
+    }
+
     setIsSubmitting(true);
-    
+
+    const bookingData = {
+      bookingId: `BK-${Math.floor(100000 + Math.random() * 900000)}`,
+      userId: urlUserId,
+      owner: urlOwner,
+      customerName,
+      phone,
+      roomName: selectedRoom.name,
+      checkIn,
+      checkOut,
+      totalPrice: calculateTotalPrice(),
+      slipBase64
+    };
+
     try {
       const response = await fetch(N8N_WEBHOOK_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          bookingId: `BK-${Math.floor(100000 + Math.random() * 900000)}`,
-          userId: urlUserId,
-          owner: urlOwner,
-          customerName,
-          phone,
-          roomName: selectedRoom.name,
-          checkIn,
-          checkOut,
-          totalPrice: calculateTotalPrice(),
-          slipBase64
-        }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(bookingData),
       });
 
-      if (response.ok) setIsSuccess(true);
-      else throw new Error("ส่งข้อมูลไม่สำเร็จ กรุณาเช็ก n8n");
+      if (response.ok) {
+        setIsSuccess(true);
+        // Reset form after success
+        setTimeout(() => {
+          setIsSuccess(false);
+          setSelectedRoom(null);
+          setCustomerName('');
+          setPhone('');
+          setCheckIn('');
+          setCheckOut('');
+          setSlipBase64(null);
+          setSlipPreview(null);
+        }, 5000);
+      } else {
+        const errorData = await response.json();
+        let errorMessage = errorData.details || "เกิดข้อผิดพลาดในการส่งข้อมูล";
+        
+        // Specific check for n8n POST error
+        if (errorMessage.includes("not registered for POST requests")) {
+          errorMessage = "⚠️ ตั้งค่า n8n ไม่ถูกต้อง: กรุณาเปลี่ยน HTTP Method ในโหนด Webhook ของ n8n จาก GET เป็น POST และกด Activate เวิร์กโฟลว์";
+        }
+        
+        throw new Error(errorMessage);
+      }
     } catch (err: any) {
-      setError(err.message);
+      console.error(err);
+      setError(err.message || "ไม่สามารถส่งข้อมูลได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] text-slate-800 font-sans">
+    <div className="min-h-screen bg-[#F8F9FA] text-slate-800 font-sans selection:bg-[#B8860B]/30">
       {/* Navbar */}
-      <nav className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-md border-b border-slate-100 px-4">
-        <div className="max-w-7xl mx-auto flex justify-between items-center h-16">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-[#2D5A27] rounded-lg flex items-center justify-center">
-              <Wind className="text-white w-5 h-5" />
+      <nav className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-md border-b border-slate-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-[#2D5A27] rounded-lg flex items-center justify-center">
+                <Wind className="text-white w-5 h-5" />
+              </div>
+              <span className="text-xl font-bold tracking-tight text-[#2D5A27]">
+                {urlOwner ? `${urlOwner.charAt(0).toUpperCase() + urlOwner.slice(1)} Homestay` : 'Loei Misty Homestay'}
+              </span>
             </div>
-            <span className="text-xl font-bold text-[#2D5A27] uppercase">
-              {urlOwner || "My"} Homestay
-            </span>
           </div>
         </div>
       </nav>
 
-      {/* Hero */}
-      <header className="pt-32 pb-16 text-center px-4">
-        <motion.h1 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-4xl sm:text-6xl font-bold text-[#2D5A27]">
-          จองห้องพัก <span className="text-[#B8860B]">ง่ายๆ ในไม่กี่คลิก</span>
-        </motion.h1>
-        <p className="mt-4 text-slate-500">เลือกเจ้าของร้านที่คุณต้องการจองผ่าน URL สู่ระบบ SaaS ของเรา</p>
-      </header>
-
-      {/* Room Grid */}
-      <section className="max-w-7xl mx-auto px-4 py-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {isRoomsLoading ? (
-          <div className="col-span-full flex justify-center py-20"><Loader2 className="animate-spin w-10 h-10 text-[#2D5A27]" /></div>
-        ) : (
-          rooms.map(room => (
-            <div key={room.id} className={`bg-white rounded-3xl overflow-hidden shadow-lg border-2 transition-all ${selectedRoom?.id === room.id ? 'border-[#B8860B]' : 'border-transparent'}`}>
-              <img src={getDirectLink(room.image)} className="w-full h-56 object-cover" alt={room.name} />
-              <div className="p-6">
-                <h3 className="text-xl font-bold">{room.name}</h3>
-                <p className="text-[#2D5A27] font-bold text-lg mt-2">฿{room.price.toLocaleString()} / คืน</p>
-                <div className="mt-4 flex gap-2">
-                   <button onClick={() => setViewingRoom(room)} className="flex-1 py-2 rounded-xl border border-[#B8860B] text-[#B8860B]">รายละเอียด</button>
-                   <button onClick={() => { setSelectedRoom(room); document.getElementById('booking-form')?.scrollIntoView({ behavior: 'smooth' }); }} className="flex-1 py-2 rounded-xl bg-[#2D5A27] text-white">เลือกห้องนี้</button>
-                </div>
-              </div>
-            </div>
-          ))
-        )}
-      </section>
+      <main className="pt-16">
+        {/* Hero Section */}
+        <section className="relative h-[40vh] sm:h-[50vh] flex items-center justify-center bg-white">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="relative text-center px-4 max-w-3xl"
+          >
+            <h1 className="text-4xl sm:text-6xl font-bold text-[#2D5A27] mb-4">
+              {urlOwner ? `${urlOwner.charAt(0).toUpperCase() + urlOwner.slice(1)} Homestay` : 'อบอุ่นเหมือนบ้าน'} <br />
+              <span className="text-[#B8860B]">ท่ามกลางสายหมอก</span>
+            </h1>
+            <p className="text-lg text-slate-600 mb-8 max-w-xl mx-auto">
+              สัมผัสวิถีชีวิตที่เรียบง่ายและความงามของธรรมชาติในจังหวัดเลย 
+              ที่ไฮตาก เราพร้อมดูแลคุณ
+            </p>
+            <button 
+              onClick={() => document.getElementById('rooms')?.scrollIntoView({ behavior: 'smooth' })}
+              className="inline-flex items-center gap-2 bg-[#2D5A27] text-white px-8 py-4 rounded-full text-lg font-semibold hover:scale-105 transition-transform shadow-lg"
+            >
+              จองห้องพักเลย <ChevronRight className="w-5 h-5" />
+            </button>
+          </motion.div>
+        </section>
 
         {/* Room Selection */}
         <section id="rooms" className="max-w-7xl mx-auto px-4 py-20 sm:px-6 lg:px-8">
