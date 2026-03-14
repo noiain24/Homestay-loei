@@ -118,15 +118,32 @@ const INITIAL_ROOMS: Room[] = [
 // Helper to convert Google Drive links to direct image links
 const getDirectLink = (url: string | undefined) => {
   if (!url) return undefined;
-  if (url.includes('drive.google.com')) {
+  
+  // Handle Google Drive links
+  if (url.includes('drive.google.com') || url.includes('docs.google.com/file/d/')) {
     let fileId = '';
+    
+    // Pattern 1: /d/FILE_ID/
     if (url.includes('/d/')) {
-      fileId = url.split('/d/')[1]?.split('/')[0];
-    } else if (url.includes('id=')) {
-      fileId = url.split('id=')[1]?.split('&')[0];
+      fileId = url.split('/d/')[1]?.split('/')[0] || '';
+    } 
+    // Pattern 2: id=FILE_ID
+    else if (url.includes('id=')) {
+      fileId = url.split('id=')[1]?.split('&')[0] || '';
     }
-    return fileId ? `https://lh3.googleusercontent.com/d/${fileId}` : url;
+    // Pattern 3: open?id=FILE_ID
+    else if (url.includes('open?id=')) {
+      fileId = url.split('open?id=')[1]?.split('&')[0] || '';
+    }
+
+    if (fileId) {
+      // Use lh3.googleusercontent.com for better reliability in some contexts
+      // or standard uc?export=view&id=
+      return `https://docs.google.com/uc?export=view&id=${fileId}`;
+    }
   }
+  
+  // Handle already direct links or other sources
   return url;
 };
 
@@ -165,33 +182,44 @@ export default function App() {
 
   // Fetch Spreadsheet ID from Master Config based on owner
   useEffect(() => {
-    console.log('Current Owner from URL:', urlOwner);
+    console.log('SaaS Logic: Checking owner from URL:', urlOwner);
+    
     if (!urlOwner) {
-      console.log('No owner provided, using default sheet ID');
+      console.log('SaaS Logic: No owner provided, using default sheet ID:', DEFAULT_SHEET_ID);
       setCurrentSheetId(DEFAULT_SHEET_ID);
       return;
     }
 
-    console.log('Fetching Master Config from:', MASTER_CONFIG_URL);
+    console.log('SaaS Logic: Fetching Master Config from:', MASTER_CONFIG_URL);
     Papa.parse(MASTER_CONFIG_URL, {
       download: true,
       header: true,
+      skipEmptyLines: true,
       complete: (results) => {
-        console.log('Master Config Data:', results.data);
-        const config = results.data.find((row: any) => 
-          row.owner?.toString().trim().toLowerCase() === urlOwner.trim().toLowerCase()
-        );
+        console.log('SaaS Logic: Master Config Data Received:', results.data);
         
-        if (config && config.spreadsheet_id) {
-          console.log('Found config for owner:', urlOwner, 'Sheet ID:', config.spreadsheet_id);
-          setCurrentSheetId(config.spreadsheet_id.trim());
+        // Find row where owner matches (case-insensitive and trimmed)
+        const config = results.data.find((row: any) => {
+          const rowOwner = (row.owner || row.Owner || "").toString().trim().toLowerCase();
+          return rowOwner === urlOwner.trim().toLowerCase();
+        });
+        
+        if (config) {
+          const sheetId = config.spreadsheet_id || config.Spreadsheet_ID || config.id;
+          if (sheetId) {
+            console.log(`SaaS Logic: Found config for owner "${urlOwner}" -> Sheet ID: ${sheetId}`);
+            setCurrentSheetId(sheetId.toString().trim());
+          } else {
+            console.warn(`SaaS Logic: Row found for "${urlOwner}" but spreadsheet_id is missing.`);
+            setCurrentSheetId(DEFAULT_SHEET_ID);
+          }
         } else {
-          console.warn(`Owner "${urlOwner}" not found in Master Config. Available owners:`, results.data.map((r: any) => r.owner));
+          console.warn(`SaaS Logic: Owner "${urlOwner}" not found in Master Config. Available:`, results.data.map((r: any) => r.owner || r.Owner));
           setCurrentSheetId(DEFAULT_SHEET_ID);
         }
       },
       error: (error) => {
-        console.error('Error fetching Master Config:', error);
+        console.error('SaaS Logic: Error fetching Master Config:', error);
         setCurrentSheetId(DEFAULT_SHEET_ID);
       }
     });
