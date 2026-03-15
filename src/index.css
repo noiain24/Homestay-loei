@@ -1,1 +1,42 @@
 @import "tailwindcss";
+
+/* Custom styles for booked dates in react-datepicker */
+.react-datepicker__day--booked {
+  background-color: #ef4444 !important;
+  color: white !important;
+  border-radius: 0.5rem !important;
+  position: relative;
+}
+
+.react-datepicker__day--booked:hover {
+  background-color: #dc2626 !important;
+}
+
+.react-datepicker__day--disabled {
+  color: #ccc !important;
+  cursor: not-allowed !important;
+}
+
+.react-datepicker__day--booked::after {
+  content: 'จองแล้ว';
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 6px;
+  white-space: nowrap;
+}
+
+.datepicker-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid #e2e8f0;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.datepicker-input:focus {
+  border-color: #B8860B;
+  box-shadow: 0 0 0 2px rgba(184, 134, 11, 0.2);
+}
