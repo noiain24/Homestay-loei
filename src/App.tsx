@@ -6,6 +6,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import Papa from 'papaparse';
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+import { format, addDays, isWithinInterval, parseISO, eachDayOfInterval, isSameDay } from 'date-fns';
+import { th } from 'date-fns/locale';
 import { 
   Calendar, 
   MapPin, 
@@ -33,6 +37,21 @@ const COLORS = {
   woodBrown: "#B8860B",
   cloudWhite: "#F8F9FA",
   mistyGray: "#E5E7EB",
+};
+
+// Helper to find value in row regardless of header casing or spaces/underscores
+const getValue = (row: any, ...keys: string[]) => {
+  const rowKeys = Object.keys(row);
+  for (const key of keys) {
+    // Exact match
+    if (row[key] !== undefined) return row[key];
+    
+    // Case-insensitive match with normalized keys
+    const normalizedKey = key.toLowerCase().replace(/[\s_]/g, '');
+    const foundKey = rowKeys.find(rk => rk.toLowerCase().replace(/[\s_]/g, '') === normalizedKey);
+    if (foundKey) return row[foundKey];
+  }
+  return "";
 };
 
 interface Room {
@@ -152,14 +171,15 @@ export default function App() {
 
   const [customerName, setCustomerName] = useState('');
   const [phone, setPhone] = useState('');
-  const [checkIn, setCheckIn] = useState('');
-  const [checkOut, setCheckOut] = useState('');
+  const [checkIn, setCheckIn] = useState<Date | null>(null);
+  const [checkOut, setCheckOut] = useState<Date | null>(null);
   const [slipBase64, setSlipBase64] = useState<string | null>(null);
   const [slipPreview, setSlipPreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [urlUserId, setUrlUserId] = useState<string>('');
+  const [bookedDates, setBookedDates] = useState<{[roomName: string]: Date[]}>({});
 
   // Extract userId from URL parameters
   useEffect(() => {
@@ -184,21 +204,6 @@ export default function App() {
       complete: (results) => {
         console.log('Raw Sheet Data:', results.data);
         
-        // Helper to find value in row regardless of header casing or spaces/underscores
-        const getValue = (row: any, ...keys: string[]) => {
-          const rowKeys = Object.keys(row);
-          for (const key of keys) {
-            // Exact match
-            if (row[key] !== undefined) return row[key];
-            
-            // Case-insensitive match with normalized keys
-            const normalizedKey = key.toLowerCase().replace(/[\s_]/g, '');
-            const foundKey = rowKeys.find(rk => rk.toLowerCase().replace(/[\s_]/g, '') === normalizedKey);
-            if (foundKey) return row[foundKey];
-          }
-          return "";
-        };
-
         const parsedRooms = results.data.map((row: any) => {
           const roomId = getValue(row, 'Room_ID', 'id', 'Room ID');
           if (!roomId) return null;
@@ -264,6 +269,57 @@ export default function App() {
     });
   }, []);
 
+  // Fetch bookings from Google Sheets (Bookings tab)
+  useEffect(() => {
+    const bookingsUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Bookings`;
+    console.log('Fetching Bookings from Sheet URL:', bookingsUrl);
+    
+    Papa.parse(bookingsUrl, {
+      download: true,
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        console.log('Raw Bookings Data:', results.data);
+        const bookings = results.data;
+        const disabledDatesMap: {[roomName: string]: Date[]} = {};
+        
+        bookings.forEach((row: any) => {
+          const status = getValue(row, 'สะถานะห้อง', 'สถานะ', 'Status', 'status');
+          // Check for 'Paid' status (case-insensitive)
+          if (status?.toString().toLowerCase() === 'paid') {
+            const roomName = getValue(row, 'ห้องพัก', 'Room', 'room', 'Room Name', 'roomName');
+            const checkInStr = getValue(row, 'เช็คอิน', 'Check-in', 'checkIn', 'check-in');
+            const checkOutStr = getValue(row, 'เช็คเอาท์', 'Check-out', 'checkOut', 'check-out');
+            
+            if (roomName && checkInStr && checkOutStr) {
+              try {
+                // Handle different date formats if necessary, but parseISO is a good start
+                const start = parseISO(checkInStr);
+                const end = parseISO(checkOutStr);
+                
+                if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+                  const interval = eachDayOfInterval({ start, end });
+                  const normalizedRoomName = roomName.toString().trim();
+                  if (!disabledDatesMap[normalizedRoomName]) {
+                    disabledDatesMap[normalizedRoomName] = [];
+                  }
+                  disabledDatesMap[normalizedRoomName].push(...interval);
+                }
+              } catch (e) {
+                console.error('Error parsing dates for booking:', row, e);
+              }
+            }
+          }
+        });
+        console.log('Disabled Dates Map:', disabledDatesMap);
+        setBookedDates(disabledDatesMap);
+      },
+      error: (error) => {
+        console.error('Error fetching bookings data:', error);
+      }
+    });
+  }, []);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -279,9 +335,7 @@ export default function App() {
 
   const calculateTotalPrice = () => {
     if (!selectedRoom || !checkIn || !checkOut) return 0;
-    const start = new Date(checkIn);
-    const end = new Date(checkOut);
-    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffTime = Math.abs(checkOut.getTime() - checkIn.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays > 0 ? diffDays * selectedRoom.price : selectedRoom.price;
   };
@@ -309,8 +363,8 @@ export default function App() {
       customerName,
       phone,
       roomName: selectedRoom.name,
-      checkIn,
-      checkOut,
+      checkIn: format(checkIn, 'yyyy-MM-dd'),
+      checkOut: format(checkOut, 'yyyy-MM-dd'),
       totalPrice: calculateTotalPrice(),
       slipBase64
     };
@@ -332,8 +386,8 @@ export default function App() {
           setSelectedRoom(null);
           setCustomerName('');
           setPhone('');
-          setCheckIn('');
-          setCheckOut('');
+          setCheckIn(null);
+          setCheckOut(null);
           setSlipBase64(null);
           setSlipPreview(null);
         }, 5000);
@@ -567,12 +621,24 @@ export default function App() {
                     <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                       <Calendar className="w-4 h-4 text-[#B8860B]" /> วันที่เช็คอิน
                     </label>
-                    <input 
-                      type="date" 
+                    <DatePicker
+                      selected={checkIn}
+                      onChange={(date) => setCheckIn(date)}
+                      selectsStart
+                      startDate={checkIn}
+                      endDate={checkOut}
+                      minDate={new Date()}
+                      excludeDates={selectedRoom ? bookedDates[selectedRoom.name] || [] : []}
+                      dayClassName={(date) => {
+                        if (!selectedRoom) return "";
+                        const isBooked = (bookedDates[selectedRoom.name] || []).some(d => isSameDay(d, date));
+                        return isBooked ? "react-datepicker__day--booked" : "";
+                      }}
+                      placeholderText="เลือกวันที่เช็คอิน"
+                      className="datepicker-input"
+                      dateFormat="dd/MM/yyyy"
+                      locale={th}
                       required
-                      value={checkIn}
-                      onChange={(e) => setCheckIn(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#B8860B] focus:border-transparent outline-none transition-all"
                     />
                   </div>
 
@@ -581,12 +647,24 @@ export default function App() {
                     <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                       <Calendar className="w-4 h-4 text-[#B8860B]" /> วันที่เช็คเอาท์
                     </label>
-                    <input 
-                      type="date" 
+                    <DatePicker
+                      selected={checkOut}
+                      onChange={(date) => setCheckOut(date)}
+                      selectsEnd
+                      startDate={checkIn}
+                      endDate={checkOut}
+                      minDate={checkIn || new Date()}
+                      excludeDates={selectedRoom ? bookedDates[selectedRoom.name] || [] : []}
+                      dayClassName={(date) => {
+                        if (!selectedRoom) return "";
+                        const isBooked = (bookedDates[selectedRoom.name] || []).some(d => isSameDay(d, date));
+                        return isBooked ? "react-datepicker__day--booked" : "";
+                      }}
+                      placeholderText="เลือกวันที่เช็คเอาท์"
+                      className="datepicker-input"
+                      dateFormat="dd/MM/yyyy"
+                      locale={th}
                       required
-                      value={checkOut}
-                      onChange={(e) => setCheckOut(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#B8860B] focus:border-transparent outline-none transition-all"
                     />
                   </div>
                 </div>
