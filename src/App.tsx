@@ -24,13 +24,8 @@ import {
 
 const N8N_WEBHOOK_URL = "https://explanate-lyn-crawliest.ngrok-free.dev/webhook-test/booking_log";
 
-// Master Config Sheet URL (Maps owner to Spreadsheet ID)
-// Format: https://docs.google.com/spreadsheets/d/MASTER_SHEET_ID/export?format=csv
-// Columns expected: owner, spreadsheet_id
-const MASTER_CONFIG_URL = "https://docs.google.com/spreadsheets/d/1bAJtopLJiMlQLXAg1HlK_647VI-7Uiy82yIIwO-3XVc/edit?gid=0#gid=0"; // Using current sheet as placeholder or master
-
-// Default Spreadsheet ID if owner not found or not provided
-const DEFAULT_SHEET_ID = "1bAJtopLJiMlQLXAg1HlK_647VI-7Uiy82yIIwO-3XVc";
+// Fixed Spreadsheet ID
+const SHEET_ID = "18enn4tE_3yCxfYha-qha6_S7ifzZ2ulRX8bnPhQrweQ";
 
 // Theme Colors
 const COLORS = {
@@ -59,11 +54,11 @@ const INITIAL_ROOMS: Room[] = [
     description: 'สัมผัสบรรยากาศริมโขงที่เชียงคาน ตื่นมาพร้อมสายหมอกเหนือน้ำ',
     fullDescription: 'ห้องพักริมแม่น้ำโขงที่ออกแบบมาเพื่อการพักผ่อนอย่างแท้จริง คุณจะได้ตื่นมาพบกับภาพทะเลหมอกที่ลอยอยู่เหนือผิวน้ำโขงในยามเช้า พร้อมระเบียงส่วนตัวที่กว้างขวางสำหรับการนั่งจิบกาแฟชมวิว ภายในตกแต่งด้วยไม้ธรรมชาติที่ให้ความรู้สึกอบอุ่นและผ่อนคลาย',
     price: 2500,
-    image: 'https://drive.google.com/uc?export=view&id=11Nm2aToAFeSVo2fAfNEJnYgjvhbBrnoB',
+    image: 'https://lh3.googleusercontent.com/d/11Nm2aToAFeSVo2fAfNEJnYgjvhbBrnoB',
     images: [
-      'https://drive.google.com/uc?export=view&id=11Nm2aToAFeSVo2fAfNEJnYgjvhbBrnoB',
-      'https://drive.google.com/uc?export=view&id=1bODjlpAZmB7wM2wU4mwrrRYzoyboJDqE',
-      'https://drive.google.com/uc?export=view&id=1M0rr1O6gkeLQ5-bxUMQuPSIjUCvzA9pL',
+      'https://lh3.googleusercontent.com/d/11Nm2aToAFeSVo2fAfNEJnYgjvhbBrnoB',
+      'https://lh3.googleusercontent.com/d/1bODjlpAZmB7wM2wU4mwrrRYzoyboJDqE',
+      'https://lh3.googleusercontent.com/d/1M0rr1O6gkeLQ5-bxUMQuPSIjUCvzA9pL',
     ],
     amenities: ['Wifi', 'เครื่องปรับอากาศ', 'ระเบียงส่วนตัว', 'อาหารเช้า', 'ตู้เย็น', 'ไดร์เป่าผม'],
     capacity: '2 ท่าน'
@@ -117,34 +112,35 @@ const INITIAL_ROOMS: Room[] = [
 
 // Helper to convert Google Drive links to direct image links
 const getDirectLink = (url: string | undefined) => {
-  if (!url) return undefined;
+  if (!url) return "";
+  const trimmedUrl = url.trim();
+  if (!trimmedUrl) return "";
   
   // Handle Google Drive links
-  if (url.includes('drive.google.com') || url.includes('docs.google.com/file/d/')) {
+  if (trimmedUrl.includes('drive.google.com') || trimmedUrl.includes('docs.google.com/file/d/')) {
     let fileId = '';
     
     // Pattern 1: /d/FILE_ID/
-    if (url.includes('/d/')) {
-      fileId = url.split('/d/')[1]?.split('/')[0] || '';
+    if (trimmedUrl.includes('/d/')) {
+      fileId = trimmedUrl.split('/d/')[1]?.split('/')[0] || '';
     } 
     // Pattern 2: id=FILE_ID
-    else if (url.includes('id=')) {
-      fileId = url.split('id=')[1]?.split('&')[0] || '';
+    else if (trimmedUrl.includes('id=')) {
+      fileId = trimmedUrl.split('id=')[1]?.split('&')[0] || '';
     }
     // Pattern 3: open?id=FILE_ID
-    else if (url.includes('open?id=')) {
-      fileId = url.split('open?id=')[1]?.split('&')[0] || '';
+    else if (trimmedUrl.includes('open?id=')) {
+      fileId = trimmedUrl.split('open?id=')[1]?.split('&')[0] || '';
     }
 
     if (fileId) {
-      // Use lh3.googleusercontent.com for better reliability in some contexts
-      // or standard uc?export=view&id=
-      return `https://docs.google.com/uc?export=view&id=${fileId}`;
+      // lh3.googleusercontent.com is generally more reliable for direct embedding
+      return `https://lh3.googleusercontent.com/d/${fileId}`;
     }
   }
   
   // Handle already direct links or other sources
-  return url;
+  return trimmedUrl;
 };
 
 export default function App() {
@@ -153,7 +149,6 @@ export default function App() {
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [viewingRoom, setViewingRoom] = useState<Room | null>(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
-  const [currentSheetId, setCurrentSheetId] = useState<string>(DEFAULT_SHEET_ID);
 
   const [customerName, setCustomerName] = useState('');
   const [phone, setPhone] = useState('');
@@ -164,70 +159,10 @@ export default function App() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [urlUserId, setUrlUserId] = useState<string>('');
-  const [urlOwner, setUrlOwner] = useState<string>('');
-
-  // Extract userId and owner from URL parameters
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const userId = params.get('userId');
-    if (userId) {
-      setUrlUserId(userId);
-    }
-    const owner = params.get('owner');
-    if (owner) {
-      setUrlOwner(owner);
-    }
-  }, []);
-
-  // Fetch Spreadsheet ID from Master Config based on owner
-  useEffect(() => {
-    console.log('SaaS Logic: Checking owner from URL:', urlOwner);
-    
-    if (!urlOwner) {
-      console.log('SaaS Logic: No owner provided, using default sheet ID:', DEFAULT_SHEET_ID);
-      setCurrentSheetId(DEFAULT_SHEET_ID);
-      return;
-    }
-
-    console.log('SaaS Logic: Fetching Master Config from:', MASTER_CONFIG_URL);
-    Papa.parse(MASTER_CONFIG_URL, {
-      download: true,
-      header: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        console.log('SaaS Logic: Master Config Data Received:', results.data);
-        
-        // Find row where owner matches (case-insensitive and trimmed)
-        const config = results.data.find((row: any) => {
-          const rowOwner = (row.owner || row.Owner || "").toString().trim().toLowerCase();
-          return rowOwner === urlOwner.trim().toLowerCase();
-        });
-        
-        if (config) {
-          const sheetId = config.spreadsheet_id || config.Spreadsheet_ID || config.id;
-          if (sheetId) {
-            console.log(`SaaS Logic: Found config for owner "${urlOwner}" -> Sheet ID: ${sheetId}`);
-            setCurrentSheetId(sheetId.toString().trim());
-          } else {
-            console.warn(`SaaS Logic: Row found for "${urlOwner}" but spreadsheet_id is missing.`);
-            setCurrentSheetId(DEFAULT_SHEET_ID);
-          }
-        } else {
-          console.warn(`SaaS Logic: Owner "${urlOwner}" not found in Master Config. Available:`, results.data.map((r: any) => r.owner || r.Owner));
-          setCurrentSheetId(DEFAULT_SHEET_ID);
-        }
-      },
-      error: (error) => {
-        console.error('SaaS Logic: Error fetching Master Config:', error);
-        setCurrentSheetId(DEFAULT_SHEET_ID);
-      }
-    });
-  }, [urlOwner]);
 
   // Fetch rooms from Google Sheets
   useEffect(() => {
-    const sheetUrl = `https://docs.google.com/spreadsheets/d/${currentSheetId}/export?format=csv`;
+    const sheetUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`;
     console.log('Fetching Rooms from Sheet URL:', sheetUrl);
     setIsRoomsLoading(true);
     setRooms([]); // Clear existing rooms to avoid showing old data
@@ -235,42 +170,74 @@ export default function App() {
     Papa.parse(sheetUrl, {
       download: true,
       header: true,
+      skipEmptyLines: true,
       complete: (results) => {
         console.log('Raw Sheet Data:', results.data);
+        
+        // Helper to find value in row regardless of header casing or spaces/underscores
+        const getValue = (row: any, ...keys: string[]) => {
+          const rowKeys = Object.keys(row);
+          for (const key of keys) {
+            // Exact match
+            if (row[key] !== undefined) return row[key];
+            
+            // Case-insensitive match with normalized keys
+            const normalizedKey = key.toLowerCase().replace(/[\s_]/g, '');
+            const foundKey = rowKeys.find(rk => rk.toLowerCase().replace(/[\s_]/g, '') === normalizedKey);
+            if (foundKey) return row[foundKey];
+          }
+          return "";
+        };
+
         const parsedRooms = results.data.map((row: any) => {
+          const roomId = getValue(row, 'Room_ID', 'id', 'Room ID');
+          if (!roomId) return null;
+
           // Clean price: remove "บาท/คืน", commas, and spaces
-          const rawPrice = row.Price_Per_Night || row.price || "0";
-          const cleanPrice = Number(rawPrice.toString().replace(/[^\d]/g, ''));
+          const rawPrice = getValue(row, 'Price_Per_Night', 'price', 'Price', 'Price Per Night');
+          const cleanPrice = Number(rawPrice.toString().replace(/[^\d]/g, '')) || 0;
 
           // Handle multiple links in Image_URL or Gallery_URLs
-          const imageUrlsRaw = (row.Image_URL || row.image || "").toString().split(',').map((s: string) => s.trim()).filter(Boolean);
-          const galleryUrlsRaw = row.Gallery_URLs ? row.Gallery_URLs.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
+          const rawImageUrl = getValue(row, 'Image_URL', 'image', 'Image URL', 'Image');
+          const rawGalleryUrl = getValue(row, 'Gallery_URLs', 'gallery', 'Gallery URLs', 'Gallery');
+          
+          // Split by comma, semicolon, or newline
+          const splitLinks = (str: any) => {
+            if (!str) return [];
+            return str.toString()
+              .split(/[,;\n]/)
+              .map((s: string) => s.trim())
+              .filter(Boolean);
+          };
+
+          const imageUrlsRaw = splitLinks(rawImageUrl);
+          const galleryUrlsRaw = splitLinks(rawGalleryUrl);
           
           // Use Gallery_URLs if provided, otherwise use all from Image_URL
           const allImages = galleryUrlsRaw.length > 0 ? galleryUrlsRaw : imageUrlsRaw;
           const mainImage = imageUrlsRaw[0] || "";
 
           // Handle Capacity and Amenities
-          // If Capacity column contains commas, it might be amenities (based on user screenshot)
-          const rawCapacity = (row.Capacity || row.capacity || "").toString();
+          const rawCapacity = getValue(row, 'Capacity', 'capacity').toString();
           const hasAmenitiesInCapacity = rawCapacity.includes(',') || rawCapacity.includes('แอร์') || rawCapacity.includes('Wifi');
           
-          const sheetAmenities = row.Amenities 
-            ? row.Amenities.split(',').map((s: string) => s.trim()) 
+          const rawAmenities = getValue(row, 'Amenities', 'amenities');
+          const sheetAmenities = rawAmenities 
+            ? rawAmenities.toString().split(',').map((s: string) => s.trim()) 
             : (hasAmenitiesInCapacity ? rawCapacity.split(',').map((s: string) => s.trim()) : []);
 
           return {
-            id: row.Room_ID || row.id,
-            name: row.Room_Name || row.name,
-            description: row.Description || row.description,
-            fullDescription: row.Full_Description || row.Description || row.description,
+            id: roomId.toString(),
+            name: getValue(row, 'Room_Name', 'name', 'Room Name') || "Unnamed Room",
+            description: getValue(row, 'Description', 'description') || "",
+            fullDescription: getValue(row, 'Full_Description', 'Full Description') || getValue(row, 'Description', 'description') || "",
             price: cleanPrice,
             image: mainImage,
             images: allImages.length > 0 ? allImages : [mainImage],
             amenities: sheetAmenities,
             capacity: hasAmenitiesInCapacity ? "" : rawCapacity
           };
-        }).filter((room: any) => room.id);
+        }).filter((room: any) => room !== null);
 
         console.log('Parsed Rooms Count:', parsedRooms.length);
         if (parsedRooms.length > 0) {
@@ -285,7 +252,7 @@ export default function App() {
         setIsRoomsLoading(false);
       }
     });
-  }, [currentSheetId]);
+  }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -328,8 +295,6 @@ export default function App() {
 
     const bookingData = {
       bookingId: `BK-${Math.floor(100000 + Math.random() * 900000)}`,
-      userId: urlUserId,
-      owner: urlOwner,
       customerName,
       phone,
       roomName: selectedRoom.name,
@@ -391,7 +356,7 @@ export default function App() {
                 <Wind className="text-white w-5 h-5" />
               </div>
               <span className="text-xl font-bold tracking-tight text-[#2D5A27]">
-                {urlOwner ? `${urlOwner.charAt(0).toUpperCase() + urlOwner.slice(1)} Homestay` : 'Loei Misty Homestay'}
+                Loei Misty Homestay
               </span>
             </div>
           </div>
@@ -408,7 +373,7 @@ export default function App() {
             className="relative text-center px-4 max-w-3xl"
           >
             <h1 className="text-4xl sm:text-6xl font-bold text-[#2D5A27] mb-4">
-              {urlOwner ? `${urlOwner.charAt(0).toUpperCase() + urlOwner.slice(1)} Homestay` : 'อบอุ่นเหมือนบ้าน'} <br />
+              Loei Misty Homestay <br />
               <span className="text-[#B8860B]">ท่ามกลางสายหมอก</span>
             </h1>
             <p className="text-lg text-slate-600 mb-8 max-w-xl mx-auto">
@@ -539,10 +504,6 @@ export default function App() {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-8">
-                {/* Hidden inputs */}
-                <input type="hidden" name="userId" value={urlUserId} />
-                <input type="hidden" name="owner" value={urlOwner} />
-
                 {/* Room Summary if selected */}
                 {selectedRoom && (
                   <motion.div 
