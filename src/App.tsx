@@ -159,6 +159,16 @@ export default function App() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [urlUserId, setUrlUserId] = useState<string>('');
+
+  // Extract userId from URL parameters
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const userId = params.get('userId');
+    if (userId) {
+      setUrlUserId(userId);
+    }
+  }, []);
 
   // Fetch rooms from Google Sheets
   useEffect(() => {
@@ -295,6 +305,7 @@ export default function App() {
 
     const bookingData = {
       bookingId: `BK-${Math.floor(100000 + Math.random() * 900000)}`,
+      userId: urlUserId,
       customerName,
       phone,
       roomName: selectedRoom.name,
