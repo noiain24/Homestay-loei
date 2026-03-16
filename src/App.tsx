@@ -176,7 +176,7 @@ export default function App() {
   const [email, setEmail] = useState('');
   const [checkIn, setCheckIn] = useState<Date | null>(null);
   const [checkOut, setCheckOut] = useState<Date | null>(null);
-  const [slipBase64, setSlipBase64] = useState<string | null>(null);
+  const [slipFile, setSlipFile] = useState<File | Blob | null>(null);
   const [slipPreview, setSlipPreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -357,16 +357,72 @@ export default function App() {
     });
   }, []);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const compressImage = (file: File, maxWidth = 1200, maxHeight = 1200, quality = 0.7): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > maxWidth) {
+              height *= maxWidth / width;
+              width = maxWidth;
+            }
+          } else {
+            if (height > maxHeight) {
+              width *= maxHeight / height;
+              height = maxHeight;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                resolve(blob);
+              } else {
+                reject(new Error('Canvas to Blob failed'));
+              }
+            },
+            'image/jpeg',
+            quality
+          );
+        };
+        img.onerror = (err) => reject(err);
+      };
+      reader.onerror = (err) => reject(err);
+    });
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = reader.result as string;
-        setSlipBase64(base64String);
-        setSlipPreview(base64String);
-      };
-      reader.readAsDataURL(file);
+      try {
+        // Create preview
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setSlipPreview(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+
+        // Compress image
+        const compressedBlob = await compressImage(file);
+        setSlipFile(compressedBlob);
+      } catch (err) {
+        console.error("Compression error:", err);
+        // Fallback to original file if compression fails
+        setSlipFile(file);
+      }
     }
   };
 
@@ -381,7 +437,7 @@ export default function App() {
     e.preventDefault();
     setError(null);
 
-    if (!selectedRoom || !customerName || !phone || !email || !checkIn || !checkOut || !slipBase64) {
+    if (!selectedRoom || !customerName || !phone || !email || !checkIn || !checkOut || !slipFile) {
       setError("กรุณากรอกข้อมูลให้ครบถ้วนและอัปโหลดสลิปการโอนเงิน");
       return;
     }
@@ -400,27 +456,28 @@ export default function App() {
 
     setIsSubmitting(true);
 
-    const bookingData = {
-      bookingId: `BK-${Math.floor(100000 + Math.random() * 900000)}`,
-      userId: urlUserId,
-      facebookId: facebookId,
-      customerName,
-      phone,
-      email,
-      roomName: selectedRoom.name,
-      checkIn: format(checkIn, 'yyyy-MM-dd'),
-      checkOut: format(checkOut, 'yyyy-MM-dd'),
-      totalPrice: calculateTotalPrice(),
-      slipBase64
-    };
+    const formData = new FormData();
+    formData.append('bookingId', `BK-${Math.floor(100000 + Math.random() * 900000)}`);
+    formData.append('userId', urlUserId);
+    formData.append('facebookId', facebookId);
+    formData.append('customerName', customerName);
+    formData.append('phone', phone);
+    formData.append('email', email);
+    formData.append('roomName', selectedRoom.name);
+    formData.append('checkIn', format(checkIn, 'yyyy-MM-dd'));
+    formData.append('checkOut', format(checkOut, 'yyyy-MM-dd'));
+    formData.append('totalPrice', calculateTotalPrice().toString());
+    
+    // Append the file directly
+    if (slipFile) {
+      formData.append('slip', slipFile, 'slip.jpg');
+    }
 
     try {
       const response = await fetch(N8N_WEBHOOK_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(bookingData),
+        // Important: Do not set Content-Type header for FormData
+        body: formData,
       });
 
       if (response.ok) {
@@ -434,7 +491,7 @@ export default function App() {
           setEmail('');
           setCheckIn(null);
           setCheckOut(null);
-          setSlipBase64(null);
+          setSlipFile(null);
           setSlipPreview(null);
         }, 5000);
       } else {
