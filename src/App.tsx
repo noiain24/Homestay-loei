@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useSearchParams } from 'react-router-dom';
 import Papa from 'papaparse';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -16,6 +17,7 @@ import {
   Phone, 
   User, 
   Upload, 
+  Mail,
   CheckCircle2, 
   ChevronRight, 
   Wifi, 
@@ -171,6 +173,7 @@ export default function App() {
 
   const [customerName, setCustomerName] = useState('');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [checkIn, setCheckIn] = useState<Date | null>(null);
   const [checkOut, setCheckOut] = useState<Date | null>(null);
   const [slipBase64, setSlipBase64] = useState<string | null>(null);
@@ -179,16 +182,23 @@ export default function App() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [urlUserId, setUrlUserId] = useState<string>('');
+  const [facebookId, setFacebookId] = useState<string>('');
   const [bookedDates, setBookedDates] = useState<{[roomName: string]: Date[]}>({});
 
-  // Extract userId from URL parameters
+  const [searchParams] = useSearchParams();
+
+  // Extract userId and fbid from URL parameters
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const userId = params.get('userId');
+    const userId = searchParams.get('userId');
+    const fbid = searchParams.get('fbid');
+    
     if (userId) {
       setUrlUserId(userId);
     }
-  }, []);
+    if (fbid) {
+      setFacebookId(fbid);
+    }
+  }, [searchParams]);
 
   // Fetch rooms from Google Sheets
   useEffect(() => {
@@ -284,21 +294,48 @@ export default function App() {
         const disabledDatesMap: {[roomName: string]: Date[]} = {};
         
         bookings.forEach((row: any) => {
-          const status = getValue(row, 'สะถานะห้อง', 'สถานะ', 'Status', 'status');
-          // Check for 'Paid' status (case-insensitive)
-          if (status?.toString().toLowerCase() === 'paid') {
-            const roomName = getValue(row, 'ห้องพัก', 'Room', 'room', 'Room Name', 'roomName');
-            const checkInStr = getValue(row, 'เช็คอิน', 'Check-in', 'checkIn', 'check-in');
-            const checkOutStr = getValue(row, 'เช็คเอาท์', 'Check-out', 'checkOut', 'check-out');
+          const status = getValue(row, 'สถานะห้อง', 'สะถานะห้อง', 'สถานะ', 'Status', 'status');
+          // Check for 'จองแล้ว' status
+          const statusStr = status?.toString().trim();
+          if (statusStr === 'จองแล้ว' || statusStr?.toLowerCase() === 'paid') {
+            const roomName = getValue(row, 'ห้องที่จอง', 'ห้องพัก', 'Room', 'room', 'Room Name', 'roomName');
+            const checkInStr = getValue(row, 'เช็คอิน', 'วันที่เช็คอิน', 'Check-in', 'checkIn', 'check-in', 'Check In');
+            const checkOutStr = getValue(row, 'เช็คเอาท์', 'วันที่เช็คเอาท์', 'Check-out', 'checkOut', 'check-out', 'Check Out');
             
             if (roomName && checkInStr && checkOutStr) {
               try {
-                // Handle different date formats if necessary, but parseISO is a good start
-                const start = parseISO(checkInStr);
-                const end = parseISO(checkOutStr);
+                // Flexible date parsing
+                const parseDate = (dateStr: string) => {
+                  const str = dateStr.toString().trim();
+                  // Try ISO format (YYYY-MM-DD)
+                  let d = parseISO(str);
+                  if (!isNaN(d.getTime())) return d;
+                  
+                  // Try DD/MM/YYYY
+                  const parts = str.split('/');
+                  if (parts.length === 3) {
+                    // Assume DD/MM/YYYY
+                    d = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+                    if (!isNaN(d.getTime())) return d;
+                  }
+                  
+                  // Fallback to native Date
+                  d = new Date(str);
+                  return d;
+                };
+
+                const start = parseDate(checkInStr);
+                const end = parseDate(checkOutStr);
                 
                 if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
-                  const interval = eachDayOfInterval({ start, end });
+                  // Block the interval. For hotel bookings, checkout day is usually free,
+                  // but we'll block it to be safe or until end-1 if we want to be precise.
+                  // Let's block until end-1 to allow checkout day check-ins.
+                  const interval = eachDayOfInterval({ 
+                    start, 
+                    end: addDays(end, -1) 
+                  });
+                  
                   const normalizedRoomName = roomName.toString().trim();
                   if (!disabledDatesMap[normalizedRoomName]) {
                     disabledDatesMap[normalizedRoomName] = [];
@@ -344,8 +381,14 @@ export default function App() {
     e.preventDefault();
     setError(null);
 
-    if (!selectedRoom || !customerName || !phone || !checkIn || !checkOut || !slipBase64) {
+    if (!selectedRoom || !customerName || !phone || !email || !checkIn || !checkOut || !slipBase64) {
       setError("กรุณากรอกข้อมูลให้ครบถ้วนและอัปโหลดสลิปการโอนเงิน");
+      return;
+    }
+
+    // Simple email validation
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError("กรุณากรอกอีเมลให้ถูกต้อง");
       return;
     }
 
@@ -360,8 +403,10 @@ export default function App() {
     const bookingData = {
       bookingId: `BK-${Math.floor(100000 + Math.random() * 900000)}`,
       userId: urlUserId,
+      facebookId: facebookId,
       customerName,
       phone,
+      email,
       roomName: selectedRoom.name,
       checkIn: format(checkIn, 'yyyy-MM-dd'),
       checkOut: format(checkOut, 'yyyy-MM-dd'),
@@ -386,6 +431,7 @@ export default function App() {
           setSelectedRoom(null);
           setCustomerName('');
           setPhone('');
+          setEmail('');
           setCheckIn(null);
           setCheckOut(null);
           setSlipBase64(null);
@@ -616,6 +662,21 @@ export default function App() {
                     />
                   </div>
 
+                  {/* Email */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                      <Mail className="w-4 h-4 text-[#B8860B]" /> อีเมล (สำหรับรับยืนยันการจอง)
+                    </label>
+                    <input 
+                      type="email" 
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="example@gmail.com"
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#B8860B] focus:border-transparent outline-none transition-all"
+                    />
+                  </div>
+
                   {/* Check-in */}
                   <div className="space-y-2">
                     <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
@@ -628,10 +689,10 @@ export default function App() {
                       startDate={checkIn}
                       endDate={checkOut}
                       minDate={new Date()}
-                      excludeDates={selectedRoom ? bookedDates[selectedRoom.name] || [] : []}
+                      excludeDates={selectedRoom ? bookedDates[selectedRoom.name.trim()] || [] : []}
                       dayClassName={(date) => {
                         if (!selectedRoom) return "";
-                        const isBooked = (bookedDates[selectedRoom.name] || []).some(d => isSameDay(d, date));
+                        const isBooked = (bookedDates[selectedRoom.name.trim()] || []).some(d => isSameDay(d, date));
                         return isBooked ? "react-datepicker__day--booked" : "";
                       }}
                       placeholderText="เลือกวันที่เช็คอิน"
@@ -654,10 +715,10 @@ export default function App() {
                       startDate={checkIn}
                       endDate={checkOut}
                       minDate={checkIn || new Date()}
-                      excludeDates={selectedRoom ? bookedDates[selectedRoom.name] || [] : []}
+                      excludeDates={selectedRoom ? bookedDates[selectedRoom.name.trim()] || [] : []}
                       dayClassName={(date) => {
                         if (!selectedRoom) return "";
-                        const isBooked = (bookedDates[selectedRoom.name] || []).some(d => isSameDay(d, date));
+                        const isBooked = (bookedDates[selectedRoom.name.trim()] || []).some(d => isSameDay(d, date));
                         return isBooked ? "react-datepicker__day--booked" : "";
                       }}
                       placeholderText="เลือกวันที่เช็คเอาท์"
