@@ -541,12 +541,12 @@ export default function App() {
             className="relative text-center px-4 max-w-3xl"
           >
             <h1 className="text-4xl sm:text-6xl font-bold text-[#2D5A27] mb-4">
-              Loei Misty Homestay <br />
+              โฮมแคมป์ โฮมสเตย์ไฮตาก <br />
               <span className="text-[#B8860B]">ท่ามกลางสายหมอก</span>
             </h1>
             <p className="text-lg text-slate-600 mb-8 max-w-xl mx-auto">
               สัมผัสวิถีชีวิตที่เรียบง่ายและความงามของธรรมชาติในจังหวัดเลย 
-              ที่ไฮตาก เราพร้อมดูแลคุณ
+              ที่ไฮตาก
             </p>
             <button 
               onClick={() => document.getElementById('rooms')?.scrollIntoView({ behavior: 'smooth' })}
