@@ -874,7 +874,7 @@ export default function App() {
             <div className="w-6 h-6 bg-[#2D5A27] rounded flex items-center justify-center">
               <Wind className="text-white w-4 h-4" />
             </div>
-            <span className="text-lg font-bold text-[#2D5A27]">Loei Homestay</span>
+            <span className="text-lg font-bold text-[#2D5A27]">HOMECAMP HAITAK</span>
           </div>
           <p className="text-slate-500 text-sm">
             © 2026 เลย โฮมสเตย์ - สัมผัสความอบอุ่นท่ามกลางสายหมอก<br />
