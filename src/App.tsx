@@ -877,7 +877,7 @@ export default function App() {
             <span className="text-lg font-bold text-[#2D5A27]">HOMECAMP HAITAK</span>
           </div>
           <p className="text-slate-500 text-sm">
-            © 2026 เลย โฮมสเตย์ - สัมผัสความอบอุ่นท่ามกลางสายหมอก<br />
+            © 2026 HOMECAMP - สัมผัสความอบอุ่นท่ามกลางสายหมอก<br />
              ไฮตาก
           </p>
         </div>
