@@ -524,7 +524,7 @@ export default function App() {
                 <Wind className="text-white w-5 h-5" />
               </div>
               <span className="text-xl font-bold tracking-tight text-[#2D5A27]">
-                Loei Misty Homestay
+                โฮมแคมป์ โฮมสเตย์ไฮตาก
               </span>
             </div>
           </div>
