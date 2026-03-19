@@ -27,10 +27,12 @@ import {
   Loader2,
   X,
   Search,
-  Trash2
+  Trash2,
+  AlertCircle
 } from 'lucide-react';
 
-const N8N_WEBHOOK_URL = "https://explanate-lyn-crawliest.ngrok-free.dev/webhook-test/booking_log";
+const N8N_WEBHOOK_URL = "/api/booking";
+const ROOM_STATUS_WEBHOOK_URL = "/api/gas-room-status";
 
 // Fixed Spreadsheet ID
 const SHEET_ID = "18enn4tE_3yCxfYha-qha6_S7ifzZ2ulRX8bnPhQrweQ";
@@ -187,6 +189,9 @@ export default function App() {
   const [urlUserId, setUrlUserId] = useState<string>('');
   const [facebookId, setFacebookId] = useState<string>('');
   const [bookedDates, setBookedDates] = useState<{[roomName: string]: Date[]}>({});
+  const [roomStatuses, setRoomStatuses] = useState<{[roomName: string]: string}>({});
+  const [gasBookings, setGasBookings] = useState<any[]>([]);
+  const [n8nError, setN8nError] = useState<string | null>(null);
 
   // New States for Search and Cancel
   const [searchPhone, setSearchPhone] = useState('');
@@ -203,6 +208,9 @@ export default function App() {
   const [searchError, setSearchError] = useState<string | null>(null);
 
   const [searchParams] = useSearchParams();
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
   // Extract userId and fbid from URL parameters
   useEffect(() => {
@@ -298,6 +306,86 @@ export default function App() {
     });
   }, []);
 
+  // Fetch Room Statuses from GAS (Google Apps Script)
+  const updateRoomButtons = async () => {
+    try {
+      console.log(`Fetching room status from GAS via proxy: ${ROOM_STATUS_WEBHOOK_URL}`);
+      const response = await fetch(ROOM_STATUS_WEBHOOK_URL);
+      if (!response.ok) {
+        console.warn(`GAS room status fetch failed with status: ${response.status}`);
+        return;
+      }
+      
+      const text = await response.text();
+      if (!text || text.trim() === "") {
+        console.warn("GAS room status returned an empty response");
+        return;
+      }
+
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        console.error("Expected JSON from GAS but received:", text.substring(0, 100));
+        return;
+      }
+      
+      if (Array.isArray(data)) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // Helper to parse dates from GAS
+        const parseGasDate = (dateStr: any) => {
+          if (!dateStr) return null;
+          const str = dateStr.toString().trim();
+          let d = parseISO(str);
+          if (!isNaN(d.getTime())) return d;
+          
+          const parts = str.split('/');
+          if (parts.length === 3) {
+            d = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+            if (!isNaN(d.getTime())) return d;
+          }
+          return new Date(str);
+        };
+
+        // Filter out past bookings (UI Filtering Only)
+        const activeBookings = data.filter(item => {
+          const checkOutStr = item['เช็คเอาท์'] || item['Check-out'] || item['checkOut'];
+          const checkOutDate = parseGasDate(checkOutStr);
+          return checkOutDate && checkOutDate >= today;
+        });
+
+        console.log('Active Bookings from GAS:', activeBookings.length);
+        setGasBookings(activeBookings);
+
+        // Update current status map for UI hints (optional, but requested to keep it clean)
+        const statusMap: {[roomName: string]: string} = {};
+        activeBookings.forEach(item => {
+          const roomName = item['ห้องที่จอง'] || item['Room_Name'] || item['name'];
+          const status = item['สถานะห้อง'] || item['Status'] || item['status'];
+          const checkInDate = parseGasDate(item['เช็คอิน'] || item['Check-in']);
+          const checkOutDate = parseGasDate(item['เช็คเอาท์'] || item['Check-out']);
+          
+          // If currently occupied
+          if (roomName && checkInDate && checkOutDate && today >= checkInDate && today < checkOutDate) {
+            statusMap[roomName.toString().trim()] = "จองแล้ว";
+          }
+        });
+        setRoomStatuses(statusMap);
+      }
+    } catch (error) {
+      console.error('Error in updateRoomButtons:', error);
+    }
+  };
+
+  useEffect(() => {
+    updateRoomButtons();
+    // Refresh status every 2 minutes
+    const interval = setInterval(updateRoomButtons, 2 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Fetch bookings from Google Sheets (Bookings tab)
   useEffect(() => {
     const bookingsUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Bookings`;
@@ -346,20 +434,25 @@ export default function App() {
                 const start = parseDate(checkInStr);
                 const end = parseDate(checkOutStr);
                 
-                if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && end >= today) {
                   // Block the interval. For hotel bookings, checkout day is usually free,
                   // but we'll block it to be safe or until end-1 if we want to be precise.
                   // Let's block until end-1 to allow checkout day check-ins.
                   const interval = eachDayOfInterval({ 
-                    start, 
+                    start: start < today ? today : start, 
                     end: addDays(end, -1) 
-                  });
+                  }).filter(date => date >= today);
                   
-                  const normalizedRoomName = roomName.toString().trim();
-                  if (!disabledDatesMap[normalizedRoomName]) {
-                    disabledDatesMap[normalizedRoomName] = [];
+                  if (interval.length > 0) {
+                    const normalizedRoomName = roomName.toString().trim();
+                    if (!disabledDatesMap[normalizedRoomName]) {
+                      disabledDatesMap[normalizedRoomName] = [];
+                    }
+                    disabledDatesMap[normalizedRoomName].push(...interval);
                   }
-                  disabledDatesMap[normalizedRoomName].push(...interval);
                 }
               } catch (e) {
                 console.error('Error parsing dates for booking:', row, e);
@@ -445,6 +538,39 @@ export default function App() {
     }
   };
 
+  // Overlap Logic Check
+  const checkRoomOverlap = () => {
+    if (!selectedRoom || !checkIn || !checkOut) return false;
+    
+    const parseGasDate = (dateStr: any) => {
+      if (!dateStr) return null;
+      const str = dateStr.toString().trim();
+      let d = parseISO(str);
+      if (!isNaN(d.getTime())) return d;
+      const parts = str.split('/');
+      if (parts.length === 3) {
+        d = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+        if (!isNaN(d.getTime())) return d;
+      }
+      return new Date(str);
+    };
+
+    return gasBookings.some(booking => {
+      const roomName = (booking['ห้องที่จอง'] || booking['Room_Name'] || booking['name'])?.toString().trim();
+      if (roomName !== selectedRoom.name.trim()) return false;
+
+      const existingStart = parseGasDate(booking['เช็คอิน'] || booking['Check-in']);
+      const existingEnd = parseGasDate(booking['เช็คเอาท์'] || booking['Check-out']);
+
+      if (!existingStart || !existingEnd) return false;
+
+      // Overlap Logic: (StartA < EndB) and (EndA > StartB)
+      return checkIn < existingEnd && checkOut > existingStart;
+    });
+  };
+
+  const isOverlap = checkRoomOverlap();
+
   const calculateTotalPrice = () => {
     if (!selectedRoom || !checkIn || !checkOut) return 0;
     const diffTime = Math.abs(checkOut.getTime() - checkIn.getTime());
@@ -516,8 +642,14 @@ export default function App() {
           setSlipPreview(null);
         }, 5000);
       } else {
-        const errorData = await response.json();
-        let errorMessage = errorData.details || "เกิดข้อผิดพลาดในการส่งข้อมูล";
+        const errorText = await response.text();
+        let errorMessage = "เกิดข้อผิดพลาดในการส่งข้อมูล";
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.details || errorMessage;
+        } catch (e) {
+          errorMessage = errorText.substring(0, 100) || errorMessage;
+        }
         
         // Specific check for n8n POST error
         if (errorMessage.includes("not registered for POST requests")) {
@@ -545,7 +677,7 @@ export default function App() {
     setCancelMessage(null);
 
     try {
-      const response = await fetch("https://explanate-lyn-crawliest.ngrok-free.dev/webhook-test/checkphone", {
+      const response = await fetch("/api/checkphone", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone: searchPhone }),
@@ -601,7 +733,7 @@ export default function App() {
     
     setIsCancelling(true);
     try {
-      const response = await fetch("https://explanate-lyn-crawliest.ngrok-free.dev/webhook-test/cancle", {
+      const response = await fetch("/api/cancel", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -627,6 +759,27 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] text-slate-800 font-sans selection:bg-[#B8860B]/30">
+      {/* n8n Configuration Warning */}
+      {n8nError && (
+        <div className="fixed bottom-4 right-4 z-50 max-w-md bg-red-50 border-l-4 border-red-500 p-4 shadow-lg rounded-r-lg animate-bounce">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <AlertCircle className="h-5 w-5 text-red-500" />
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-bold text-red-800">พบปัญหาการเชื่อมต่อ n8n</h3>
+              <p className="text-xs text-red-700 mt-1">{n8nError}</p>
+              <button 
+                onClick={() => setN8nError(null)}
+                className="mt-2 text-xs font-semibold text-red-800 hover:underline"
+              >
+                ปิดการแจ้งเตือน
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Navbar */}
       <nav className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-md border-b border-slate-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -754,13 +907,14 @@ export default function App() {
                           setSelectedRoom(room);
                           document.getElementById('booking-form')?.scrollIntoView({ behavior: 'smooth' });
                         }}
+                        data-room={room.name}
                         className={`w-full py-3 rounded-xl font-semibold transition-all ${
                           selectedRoom?.id === room.id 
-                          ? 'bg-[#2D5A27] text-white' 
-                          : 'bg-slate-100 text-slate-700 hover:bg-[#2D5A27] hover:text-white'
+                            ? 'bg-[#2D5A27] text-white' 
+                            : 'bg-green-600 text-white hover:bg-green-700'
                         }`}
                       >
-                        {selectedRoom?.id === room.id ? 'เลือกแล้ว' : 'เลือกห้องนี้'}
+                        {selectedRoom?.id === room.id ? 'เลือกแล้ว' : 'เลือกห้องนี้ (ว่าง)'}
                       </button>
                     </div>
                   </div>
@@ -857,7 +1011,7 @@ export default function App() {
                       selectsStart
                       startDate={checkIn}
                       endDate={checkOut}
-                      minDate={new Date()}
+                      minDate={today}
                       excludeDates={selectedRoom ? bookedDates[selectedRoom.name.trim()] || [] : []}
                       dayClassName={(date) => {
                         if (!selectedRoom) return "";
@@ -883,7 +1037,7 @@ export default function App() {
                       selectsEnd
                       startDate={checkIn}
                       endDate={checkOut}
-                      minDate={checkIn || new Date()}
+                      minDate={checkIn || today}
                       excludeDates={selectedRoom ? bookedDates[selectedRoom.name.trim()] || [] : []}
                       dayClassName={(date) => {
                         if (!selectedRoom) return "";
@@ -951,13 +1105,19 @@ export default function App() {
 
                   <button 
                     type="submit"
-                    disabled={isSubmitting}
-                    className="w-full sm:w-auto px-12 py-4 bg-[#B8860B] text-white rounded-2xl font-bold text-lg shadow-lg hover:bg-[#966D09] hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+                    disabled={isSubmitting || isOverlap}
+                    className={`w-full sm:w-auto px-12 py-4 rounded-2xl font-bold text-lg shadow-lg transition-all flex items-center justify-center gap-3 ${
+                      isOverlap 
+                        ? 'bg-gray-400 text-white cursor-not-allowed' 
+                        : 'bg-[#B8860B] text-white hover:bg-[#966D09] hover:shadow-xl'
+                    }`}
                   >
                     {isSubmitting ? (
                       <>
                         <Loader2 className="w-5 h-5 animate-spin" /> กำลังส่งข้อมูล...
                       </>
+                    ) : isOverlap ? (
+                      'เต็มแล้วในวันที่คุณเลือก'
                     ) : (
                       'ยืนยันการจองห้องพัก'
                     )}
@@ -1216,7 +1376,8 @@ export default function App() {
                             setViewingRoom(null);
                             document.getElementById('booking-form')?.scrollIntoView({ behavior: 'smooth' });
                           }}
-                          className="w-full py-4 bg-[#B8860B] text-white rounded-2xl font-bold shadow-lg hover:bg-[#966D09] transition-all"
+                          data-room={viewingRoom.name}
+                          className="w-full py-4 rounded-2xl font-bold shadow-lg transition-all bg-green-600 text-white hover:bg-green-700"
                         >
                           จองห้องนี้เลย
                         </button>
