@@ -174,6 +174,7 @@ export default function App() {
   const [customerName, setCustomerName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [socialId, setSocialId] = useState('');
   const [checkIn, setCheckIn] = useState<Date | null>(null);
   const [checkOut, setCheckOut] = useState<Date | null>(null);
   const [slipFile, setSlipFile] = useState<File | Blob | null>(null);
@@ -194,9 +195,11 @@ export default function App() {
     
     if (userId) {
       setUrlUserId(userId);
+      setSocialId(userId); // Pre-fill socialId with userId (Line ID)
     }
     if (fbid) {
       setFacebookId(fbid);
+      if (!userId) setSocialId(fbid); // Pre-fill socialId with fbid if userId is not present
     }
   }, [searchParams]);
 
@@ -463,6 +466,7 @@ export default function App() {
     formData.append('customerName', customerName);
     formData.append('phone', phone);
     formData.append('email', email);
+    formData.append('socialId', socialId);
     formData.append('roomName', selectedRoom.name);
     formData.append('checkIn', format(checkIn, 'yyyy-MM-dd'));
     formData.append('checkOut', format(checkOut, 'yyyy-MM-dd'));
@@ -489,6 +493,7 @@ export default function App() {
           setCustomerName('');
           setPhone('');
           setEmail('');
+          setSocialId('');
           setCheckIn(null);
           setCheckOut(null);
           setSlipFile(null);
@@ -524,7 +529,7 @@ export default function App() {
                 <Wind className="text-white w-5 h-5" />
               </div>
               <span className="text-xl font-bold tracking-tight text-[#2D5A27]">
-                โฮมแคมป์ โฮมสเตย์ไฮตาก
+                Loei Misty Homestay
               </span>
             </div>
           </div>
@@ -541,12 +546,12 @@ export default function App() {
             className="relative text-center px-4 max-w-3xl"
           >
             <h1 className="text-4xl sm:text-6xl font-bold text-[#2D5A27] mb-4">
-              โฮมแคมป์ โฮมสเตย์ไฮตาก <br />
+              Loei Misty Homestay <br />
               <span className="text-[#B8860B]">ท่ามกลางสายหมอก</span>
             </h1>
             <p className="text-lg text-slate-600 mb-8 max-w-xl mx-auto">
               สัมผัสวิถีชีวิตที่เรียบง่ายและความงามของธรรมชาติในจังหวัดเลย 
-              ที่ไฮตาก
+              ที่ไฮตาก เราพร้อมดูแลคุณ
             </p>
             <button 
               onClick={() => document.getElementById('rooms')?.scrollIntoView({ behavior: 'smooth' })}
@@ -734,6 +739,21 @@ export default function App() {
                     />
                   </div>
 
+                  {/* Social ID (Line/Facebook) */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                      <User className="w-4 h-4 text-[#B8860B]" /> Line ID / Facebook ID
+                    </label>
+                    <input 
+                      type="text" 
+                      value={socialId}
+                      onChange={(e) => setSocialId(e.target.value)}
+                      placeholder="เช่น line_id หรือ fb_name"
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#B8860B] focus:border-transparent outline-none transition-all"
+                    />
+                    <p className="text-[10px] text-slate-400">ใช้สำหรับการแจ้งเตือนหรือยกเลิกการจอง</p>
+                  </div>
+
                   {/* Check-in */}
                   <div className="space-y-2">
                     <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
@@ -874,10 +894,10 @@ export default function App() {
             <div className="w-6 h-6 bg-[#2D5A27] rounded flex items-center justify-center">
               <Wind className="text-white w-4 h-4" />
             </div>
-            <span className="text-lg font-bold text-[#2D5A27]">HOMECAMP HAITAK</span>
+            <span className="text-lg font-bold text-[#2D5A27]">Loei Homestay</span>
           </div>
           <p className="text-slate-500 text-sm">
-            © 2026 HOMECAMP - สัมผัสความอบอุ่นท่ามกลางสายหมอก<br />
+            © 2026 เลย โฮมสเตย์ - สัมผัสความอบอุ่นท่ามกลางสายหมอก<br />
              ไฮตาก
           </p>
         </div>
