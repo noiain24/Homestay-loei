@@ -194,6 +194,8 @@ export default function App() {
     customerName: string;
     roomName: string;
     rowNumber: number;
+    checkIn?: string | number;
+    checkOut?: string | number;
   } | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
@@ -551,12 +553,14 @@ export default function App() {
 
       if (response.ok) {
         const data = await response.json();
-        // Assuming the webhook returns { customerName, roomName, row_number }
+        // Expected JSON: { customerName, roomName, row_number, checkIn, checkOut, status }
         if (data && data.customerName) {
           setSearchResult({
             customerName: data.customerName,
             roomName: data.roomName,
             rowNumber: data.row_number,
+            checkIn: data.checkIn,
+            checkOut: data.checkOut
           });
         } else {
           setSearchError("ไม่พบข้อมูลการจองสำหรับเบอร์โทรศัพท์นี้");
@@ -570,6 +574,26 @@ export default function App() {
     } finally {
       setIsSearching(false);
     }
+  };
+
+  // Helper to format Google Sheets serial date or string date
+  const formatSheetDate = (dateVal: string | number | undefined) => {
+    if (!dateVal) return "-";
+    
+    let date: Date;
+    
+    if (typeof dateVal === 'number') {
+      // Google Sheets serial date conversion
+      // 25569 is the number of days between 1899-12-30 and 1970-01-01
+      date = new Date(Math.round((dateVal - 25569) * 86400 * 1000));
+    } else {
+      // Try parsing as ISO string or other format
+      date = new Date(dateVal);
+    }
+
+    if (isNaN(date.getTime())) return dateVal.toString();
+    
+    return format(date, 'dd/MM/yyyy');
   };
 
   const handleCancelBooking = async () => {
@@ -1018,6 +1042,14 @@ export default function App() {
                           <p className="text-xs font-bold text-[#B8860B] uppercase tracking-wider mb-1">พบข้อมูลการจอง</p>
                           <h4 className="text-xl font-bold text-slate-800">{searchResult.customerName}</h4>
                           <p className="text-slate-500">ห้องพัก: {searchResult.roomName}</p>
+                          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                            <p className="text-slate-600">
+                              <span className="font-semibold text-[#2D5A27]">เช็คอิน:</span> {formatSheetDate(searchResult.checkIn)}
+                            </p>
+                            <p className="text-slate-600">
+                              <span className="font-semibold text-[#2D5A27]">เช็คเอาท์:</span> {formatSheetDate(searchResult.checkOut)}
+                            </p>
+                          </div>
                         </div>
                         <div className="bg-white p-2 rounded-xl shadow-sm">
                           <User className="w-6 h-6 text-[#2D5A27]" />
