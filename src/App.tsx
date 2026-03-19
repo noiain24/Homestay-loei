@@ -25,7 +25,9 @@ import {
   Wind, 
   Waves,
   Loader2,
-  X
+  X,
+  Search,
+  Trash2
 } from 'lucide-react';
 
 const N8N_WEBHOOK_URL = "https://explanate-lyn-crawliest.ngrok-free.dev/webhook-test/booking_log";
@@ -185,6 +187,18 @@ export default function App() {
   const [urlUserId, setUrlUserId] = useState<string>('');
   const [facebookId, setFacebookId] = useState<string>('');
   const [bookedDates, setBookedDates] = useState<{[roomName: string]: Date[]}>({});
+
+  // New States for Search and Cancel
+  const [searchPhone, setSearchPhone] = useState('');
+  const [searchResult, setSearchResult] = useState<{
+    customerName: string;
+    roomName: string;
+    rowNumber: number;
+  } | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [cancelMessage, setCancelMessage] = useState<string | null>(null);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   const [searchParams] = useSearchParams();
 
@@ -515,6 +529,75 @@ export default function App() {
       setError(err.message || "ไม่สามารถส่งข้อมูลได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleSearchBooking = async () => {
+    if (!searchPhone) {
+      setSearchError("กรุณากรอกเบอร์โทรศัพท์");
+      return;
+    }
+    setIsSearching(true);
+    setSearchError(null);
+    setSearchResult(null);
+    setCancelMessage(null);
+
+    try {
+      const response = await fetch("https://explanate-lyn-crawliest.ngrok-free.dev/webhook-test/checkphone", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: searchPhone }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Assuming the webhook returns { customerName, roomName, row_number }
+        if (data && data.customerName) {
+          setSearchResult({
+            customerName: data.customerName,
+            roomName: data.roomName,
+            rowNumber: data.row_number,
+          });
+        } else {
+          setSearchError("ไม่พบข้อมูลการจองสำหรับเบอร์โทรศัพท์นี้");
+        }
+      } else {
+        setSearchError("เกิดข้อผิดพลาดในการค้นหา กรุณาลองใหม่อีกครั้ง");
+      }
+    } catch (err) {
+      console.error("Search error:", err);
+      setSearchError("ไม่สามารถเชื่อมต่อกับระบบได้");
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleCancelBooking = async () => {
+    if (!searchResult) return;
+    
+    setIsCancelling(true);
+    try {
+      const response = await fetch("https://explanate-lyn-crawliest.ngrok-free.dev/webhook-test/cancle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          row: searchResult.rowNumber, 
+          action: "ยกเลิก" 
+        }),
+      });
+
+      if (response.ok) {
+        setCancelMessage("ส่งเรื่องยกเลิกเรียบร้อย ระบบจะแจ้งเตือนคุณผ่านแชทใน 1 นาที");
+        setSearchResult(null);
+        setSearchPhone('');
+      } else {
+        setSearchError("เกิดข้อผิดพลาดในการยกเลิก กรุณาลองใหม่อีกครั้ง");
+      }
+    } catch (err) {
+      console.error("Cancel error:", err);
+      setSearchError("ไม่สามารถเชื่อมต่อกับระบบได้");
+    } finally {
+      setIsCancelling(false);
     }
   };
 
@@ -867,6 +950,94 @@ export default function App() {
                   </motion.div>
                 )}
               </form>
+            </div>
+          </div>
+        </section>
+
+        {/* Manage Booking Section */}
+        <section id="manage-booking" className="bg-slate-50 py-24">
+          <div className="max-w-4xl mx-auto px-4">
+            <div className="bg-white rounded-[2.5rem] shadow-xl overflow-hidden p-8 sm:p-12 border border-slate-100">
+              <div className="text-center mb-10">
+                <h2 className="text-3xl font-bold text-slate-800">จัดการการจอง</h2>
+                <p className="text-slate-500 mt-2">ค้นหาประวัติการจองหรือขอยกเลิกการเข้าพัก</p>
+              </div>
+
+              <div className="max-w-md mx-auto space-y-6">
+                <div className="relative">
+                  <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <input 
+                    type="tel" 
+                    value={searchPhone}
+                    onChange={(e) => setSearchPhone(e.target.value)}
+                    placeholder="กรอกเบอร์โทรศัพท์ที่ใช้จอง"
+                    className="w-full pl-12 pr-4 py-4 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-[#B8860B] focus:border-transparent outline-none transition-all"
+                  />
+                </div>
+                
+                <button 
+                  onClick={handleSearchBooking}
+                  disabled={isSearching}
+                  className="w-full py-4 bg-[#2D5A27] text-white rounded-2xl font-bold shadow-lg hover:bg-[#1e3d1a] transition-all flex items-center justify-center gap-2 disabled:opacity-70"
+                >
+                  {isSearching ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
+                  ค้นหาการจอง
+                </button>
+
+                {searchError && (
+                  <motion.p 
+                    initial={{ opacity: 0 }} 
+                    animate={{ opacity: 1 }} 
+                    className="text-center text-red-500 text-sm font-medium"
+                  >
+                    {searchError}
+                  </motion.p>
+                )}
+
+                {cancelMessage && (
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.9 }} 
+                    animate={{ opacity: 1, scale: 1 }} 
+                    className="p-6 bg-green-50 border border-green-100 rounded-3xl text-center"
+                  >
+                    <CheckCircle2 className="w-10 h-10 text-green-500 mx-auto mb-3" />
+                    <p className="text-green-700 font-medium">{cancelMessage}</p>
+                  </motion.div>
+                )}
+
+                <AnimatePresence>
+                  {searchResult && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      className="bg-[#F8F9FA] p-6 rounded-3xl border border-slate-100 space-y-4"
+                    >
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="text-xs font-bold text-[#B8860B] uppercase tracking-wider mb-1">พบข้อมูลการจอง</p>
+                          <h4 className="text-xl font-bold text-slate-800">{searchResult.customerName}</h4>
+                          <p className="text-slate-500">ห้องพัก: {searchResult.roomName}</p>
+                        </div>
+                        <div className="bg-white p-2 rounded-xl shadow-sm">
+                          <User className="w-6 h-6 text-[#2D5A27]" />
+                        </div>
+                      </div>
+
+                      <div className="pt-4 border-t border-slate-200">
+                        <button 
+                          onClick={handleCancelBooking}
+                          disabled={isCancelling}
+                          className="w-full py-3 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-100 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
+                        >
+                          {isCancelling ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                          ขอยกเลิกการจองนี้
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
           </div>
         </section>
