@@ -461,8 +461,8 @@ export default function App() {
 
     const formData = new FormData();
     formData.append('bookingId', `BK-${Math.floor(100000 + Math.random() * 900000)}`);
-    formData.append('userId', urlUserId);
-    formData.append('facebookId', facebookId);
+    formData.append('lineId', urlUserId); // For Column M: UserID LINE
+    formData.append('facebookId', facebookId); // For Column N: facebookId
     formData.append('customerName', customerName);
     formData.append('phone', phone);
     formData.append('email', email);
@@ -737,21 +737,6 @@ export default function App() {
                       placeholder="example@gmail.com"
                       className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#B8860B] focus:border-transparent outline-none transition-all"
                     />
-                  </div>
-
-                  {/* Social ID (Line/Facebook) */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                      <User className="w-4 h-4 text-[#B8860B]" /> Line ID / Facebook ID
-                    </label>
-                    <input 
-                      type="text" 
-                      value={socialId}
-                      onChange={(e) => setSocialId(e.target.value)}
-                      placeholder="เช่น line_id หรือ fb_name"
-                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#B8860B] focus:border-transparent outline-none transition-all"
-                    />
-                    <p className="text-[10px] text-slate-400">ใช้สำหรับการแจ้งเตือนหรือยกเลิกการจอง</p>
                   </div>
 
                   {/* Check-in */}
