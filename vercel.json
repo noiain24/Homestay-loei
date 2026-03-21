@@ -1,0 +1,20 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/booking",
+      "destination": "https://n8n.srv1515012.hstgr.cloud/webhook/booking_log"
+    },
+    {
+      "source": "/api/checkphone",
+      "destination": "https://n8n.srv1515012.hstgr.cloud/webhook-test/checkphone"
+    },
+    {
+      "source": "/api/cancel",
+      "destination": "https://n8n.srv1515012.hstgr.cloud/webhook/cancle"
+    },
+    {
+      "source": "/api/gas-room-status",
+      "destination": "https://script.google.com/macros/s/AKfycbxkwUBjmR1W9e51sV9DqOcK7N-jLXLdWpZM4f8kQemwQxHgPoWTli2dwrYuezHSAhtp/exec"
+    }
+  ]
+}

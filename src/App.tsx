@@ -40,10 +40,10 @@ import {
   MessageCircle
 } from 'lucide-react';
 
-const N8N_WEBHOOK_URL = "https://n8n.srv1515012.hstgr.cloud/webhook/booking_log";
-const ROOM_STATUS_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbxkwUBjmR1W9e51sV9DqOcK7N-jLXLdWpZM4f8kQemwQxHgPoWTli2dwrYuezHSAhtp/exec";
-const N8N_CHECK_PHONE_URL = "https://n8n.srv1515012.hstgr.cloud/webhook/check%20phone";
-const N8N_CANCEL_URL = "https://n8n.srv1515012.hstgr.cloud/webhook/cancle";
+const N8N_WEBHOOK_URL = "/api/booking";
+const ROOM_STATUS_WEBHOOK_URL = "/api/gas-room-status";
+const N8N_CHECK_PHONE_URL = "/api/checkphone";
+const N8N_CANCEL_URL = "/api/cancel";
 
 // Fixed Spreadsheet ID
 const SHEET_ID = "18enn4tE_3yCxfYha-qha6_S7ifzZ2ulRX8bnPhQrweQ";
@@ -777,12 +777,18 @@ export default function App() {
           setSearchError("ไม่พบข้อมูลการจองสำหรับเบอร์โทรศัพท์นี้");
         }
       } else {
-        const errorData = await response.json().catch(() => ({ details: "Failed to check phone" }));
-        throw new Error(errorData.details || errorData.error || "Failed to check phone");
+        const text = await response.text();
+        let errorMessage = "เกิดข้อผิดพลาดในการค้นหา";
+        if (response.status === 404) errorMessage = "ไม่พบ Webhook สำหรับค้นหา (404)";
+        throw new Error(errorMessage);
       }
     } catch (err: any) {
       console.error(`[${new Date().toISOString()}] Check Phone Error:`, err);
-      setSearchError(err.message || "เกิดข้อผิดพลาดในการค้นหา กรุณาลองใหม่อีกครั้ง");
+      let displayError = err.message;
+      if (displayError.includes("The string did not match the expected pattern") || displayError.includes("Failed to fetch")) {
+        displayError = "ถูกบล็อกโดยระบบความปลอดภัย (CORS) กรุณาตั้งค่า n8n ให้ยอมรับโดเมน Vercel หรือใช้ Shared URL จาก AI Studio";
+      }
+      setSearchError(displayError);
     } finally {
       setIsSearching(false);
     }
@@ -832,11 +838,15 @@ export default function App() {
         setSearchResult(null);
         setSearchPhone('');
       } else {
-        throw new Error("Failed to cancel");
+        throw new Error("ไม่สามารถส่งคำขอยกเลิกได้");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(`[${new Date().toISOString()}] Cancel Error:`, err);
-      setSearchError("ไม่สามารถเชื่อมต่อกับระบบได้");
+      let displayError = "ไม่สามารถเชื่อมต่อกับระบบได้";
+      if (err.message.includes("The string did not match the expected pattern") || err.message.includes("Failed to fetch")) {
+        displayError = "ถูกบล็อกโดยระบบความปลอดภัย (CORS) กรุณาใช้ Shared URL จาก AI Studio";
+      }
+      setSearchError(displayError);
     } finally {
       setIsCancelling(false);
     }
