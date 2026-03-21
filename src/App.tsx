@@ -778,8 +778,16 @@ export default function App() {
         }
       } else {
         const text = await response.text();
-        let errorMessage = "เกิดข้อผิดพลาดในการค้นหา";
+        console.error(`[${new Date().toISOString()}] n8n checkphone error response (${response.status}):`, text);
+        let errorMessage = `เกิดข้อผิดพลาดในการค้นหา (Server Error ${response.status})`;
         if (response.status === 404) errorMessage = "ไม่พบ Webhook สำหรับค้นหา (404)";
+        
+        // Try to parse n8n error if it's JSON
+        try {
+          const errData = JSON.parse(text);
+          if (errData.message) errorMessage = `ข้อผิดพลาดจากระบบ: ${errData.message}`;
+        } catch (e) {}
+        
         throw new Error(errorMessage);
       }
     } catch (err: any) {

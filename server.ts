@@ -89,8 +89,8 @@ async function startServer() {
 
   // Proxy endpoint for checkphone
   app.post("/api/checkphone", async (req, res) => {
-    const TEST_URL = "https://n8n.srv1515012.hstgr.cloud/webhook-test/check%20phone";
-    const PROD_URL = "https://n8n.srv1515012.hstgr.cloud/webhook/check%20phone";
+    const TEST_URL = "https://n8n.srv1515012.hstgr.cloud/webhook-test/checkphone";
+    const PROD_URL = "https://n8n.srv1515012.hstgr.cloud/webhook/checkphone";
     
     console.log(`[${new Date().toISOString()}] Proxying checkphone request to n8n...`);
     
