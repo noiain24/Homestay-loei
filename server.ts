@@ -18,8 +18,8 @@ async function startServer() {
 
   // Proxy endpoint for n8n booking to avoid CORS issues
   app.post("/api/booking", upload.single('slip'), async (req: any, res) => {
-    const TEST_URL = "https://n8n.srv1515012.hstgr.cloud/webhook-test/booking_log";
     const PROD_URL = "https://n8n.srv1515012.hstgr.cloud/webhook/booking_log";
+    const TEST_URL = "https://n8n.srv1515012.hstgr.cloud/webhook-test/booking_log";
     
     console.log(`[${new Date().toISOString()}] Proxying booking request to n8n...`);
     
@@ -36,7 +36,7 @@ async function startServer() {
 
         console.log(`[${new Date().toISOString()}] Attempting booking fetch to: ${url}`);
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 20000); // 20s timeout for file uploads
+        const timeout = setTimeout(() => controller.abort(), 30000); // 30s timeout for file uploads
 
         const response = await fetch(url, {
           method: 'POST',
@@ -56,11 +56,11 @@ async function startServer() {
       }
     };
 
-    // Try TEST URL first as requested by user
-    let response = await tryFetch(TEST_URL);
+    // Try PROD URL first as requested by user for production use
+    let response = await tryFetch(PROD_URL);
     if (!response || response.status === 404) {
-      console.log("TEST URL failed or 404, trying PROD URL...");
-      response = await tryFetch(PROD_URL);
+      console.log("PROD URL failed or 404, trying TEST URL as fallback...");
+      response = await tryFetch(TEST_URL);
     }
 
     if (response && response.ok) {

@@ -40,8 +40,10 @@ import {
   MessageCircle
 } from 'lucide-react';
 
-const N8N_WEBHOOK_URL = "/api/booking";
-const ROOM_STATUS_WEBHOOK_URL = "/api/gas-room-status";
+const N8N_WEBHOOK_URL = "https://n8n.srv1515012.hstgr.cloud/webhook/booking_log";
+const ROOM_STATUS_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbxkwUBjmR1W9e51sV9DqOcK7N-jLXLdWpZM4f8kQemwQxHgPoWTli2dwrYuezHSAhtp/exec";
+const N8N_CHECK_PHONE_URL = "https://n8n.srv1515012.hstgr.cloud/webhook/check%20phone";
+const N8N_CANCEL_URL = "https://n8n.srv1515012.hstgr.cloud/webhook/cancle";
 
 // Fixed Spreadsheet ID
 const SHEET_ID = "18enn4tE_3yCxfYha-qha6_S7ifzZ2ulRX8bnPhQrweQ";
@@ -248,6 +250,7 @@ export default function App() {
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancelMessage, setCancelMessage] = useState<string | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const [searchParams] = useSearchParams();
 
@@ -633,9 +636,39 @@ export default function App() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setValidationError(null);
 
-    if (!selectedRoom || !customerName || !phone || !email || !checkIn || !checkOut || !slipFile) {
-      setError("กรุณากรอกข้อมูลให้ครบถ้วนและอัปโหลดสลิปการโอนเงิน");
+    // Validation: Check for empty fields
+    if (!selectedRoom) {
+      setValidationError("กรุณาเลือกห้องพักที่ต้องการจอง");
+      return;
+    }
+    if (!customerName || customerName.trim() === "") {
+      setValidationError("กรุณากรอกชื่อ-นามสกุลของผู้เข้าพัก");
+      return;
+    }
+    if (!phone || phone.trim() === "") {
+      setValidationError("กรุณากรอกเบอร์โทรศัพท์ติดต่อ");
+      return;
+    }
+    
+    // Validation: Phone number must be 10 digits
+    const phoneDigits = phone.replace(/\D/g, '');
+    if (phoneDigits.length !== 10) {
+      setValidationError("กรุณากรอกเบอร์โทรศัพท์ให้ครบ 10 หลัก (ตัวเลขเท่านั้น)");
+      return;
+    }
+
+    if (!email || email.trim() === "") {
+      setValidationError("กรุณากรอกอีเมลสำหรับรับข้อมูลการจอง");
+      return;
+    }
+    if (!checkIn || !checkOut) {
+      setValidationError("กรุณาเลือกวันที่เช็คอินและเช็คเอาท์");
+      return;
+    }
+    if (!slipFile) {
+      setValidationError("กรุณาอัปโหลดสลิปหลักฐานการโอนเงิน");
       return;
     }
 
@@ -645,7 +678,7 @@ export default function App() {
     const bookingId = `BK-${Math.floor(100000 + Math.random() * 900000)}`;
     formData.append('bookingId', bookingId);
     formData.append('customerName', customerName);
-    formData.append('phone', phone);
+    formData.append('phone', phoneDigits); // Send only digits
     formData.append('email', email);
     formData.append('roomName', selectedRoom.name);
     formData.append('checkIn', format(checkIn, 'yyyy-MM-dd'));
@@ -660,23 +693,50 @@ export default function App() {
     }
 
     try {
-      console.log(`[${new Date().toISOString()}] Sending booking data to n8n...`);
-      const response = await fetch(`${window.location.origin}/api/booking`, {
+      console.log(`[${new Date().toISOString()}] Sending booking data directly to n8n...`);
+      
+      const response = await fetch(N8N_WEBHOOK_URL, {
         method: 'POST',
         body: formData,
+        // No headers needed for FormData, browser handles it
       });
 
       if (response.ok) {
         console.log(`[${new Date().toISOString()}] Booking Success!`);
         setIsSuccess(true);
-        // We don't reset immediately so user can click LINE button
+        // Reset form
+        setCustomerName('');
+        setPhone('');
+        setEmail('');
+        setSlipFile(null);
+        setSlipPreview(null);
+        setCheckIn(null);
+        setCheckOut(null);
+        setSelectedRoom(null);
       } else {
-        const errorData = await response.json();
-        throw new Error(errorData.details || "เกิดข้อผิดพลาดในการส่งข้อมูล");
+        const text = await response.text();
+        let errorMessage = "ระบบขัดข้องชั่วคราว กรุณาติดต่อผ่าน LINE";
+        
+        try {
+          const errorData = JSON.parse(text);
+          errorMessage = errorData.details || errorMessage;
+        } catch (e) {
+          // If not JSON, it might be a 404 or other error
+          if (response.status === 404) {
+            errorMessage = "ไม่พบเซิร์ฟเวอร์ปลายทาง (n8n) กรุณาตรวจสอบการตั้งค่า Webhook";
+          }
+        }
+        throw new Error(errorMessage);
       }
     } catch (err: any) {
       console.error(`[${new Date().toISOString()}] Booking Error:`, err);
-      setError(err.message || "ระบบขัดข้องชั่วคราว กรุณาติดต่อทาง LINE @loeimisty");
+      
+      let displayError = err.message;
+      if (displayError.includes("Failed to fetch") || displayError.includes("NetworkError")) {
+        displayError = "ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ กรุณาตรวจสอบอินเทอร์เน็ตของคุณ หรือติดต่อผ่าน LINE";
+      }
+      
+      setError(displayError || "ระบบขัดข้องชั่วคราว กรุณาติดต่อผ่าน LINE");
     } finally {
       setIsSubmitting(false);
     }
@@ -694,8 +754,8 @@ export default function App() {
     setCancelMessage(null);
 
     try {
-      console.log(`[${new Date().toISOString()}] Checking phone: ${searchPhone} via ${window.location.origin}/api/checkphone`);
-      const response = await fetch("/api/checkphone", {
+      console.log(`[${new Date().toISOString()}] Checking phone: ${searchPhone} directly via n8n`);
+      const response = await fetch(N8N_CHECK_PHONE_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone: searchPhone }),
@@ -754,8 +814,8 @@ export default function App() {
     
     setIsCancelling(true);
     try {
-      console.log(`[${new Date().toISOString()}] Cancelling booking for: ${searchResult.bookingId || searchPhone} via ${window.location.origin}/api/cancel`);
-      const response = await fetch("/api/cancel", {
+      console.log(`[${new Date().toISOString()}] Cancelling booking directly via n8n:`, searchResult);
+      const response = await fetch(N8N_CANCEL_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -1422,6 +1482,91 @@ export default function App() {
                   className="w-full py-5 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all"
                 >
                   ปิดหน้าต่างนี้
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Validation Error Modal */}
+      <AnimatePresence>
+        {validationError && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setValidationError(null)}
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative bg-white rounded-[3rem] shadow-2xl p-12 max-w-lg w-full text-center overflow-hidden border border-red-100"
+            >
+              <div className="absolute top-0 left-0 w-full h-2 bg-red-500" />
+              <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-8">
+                <AlertCircle className="w-10 h-10 text-red-500" />
+              </div>
+              <h3 className="text-2xl font-serif font-medium text-slate-800 mb-4">ข้อมูลไม่ครบถ้วน</h3>
+              <p className="text-slate-500 font-light leading-relaxed mb-10">
+                {validationError}
+              </p>
+              
+              <button 
+                onClick={() => setValidationError(null)}
+                className="w-full py-5 bg-slate-800 text-white rounded-2xl font-bold hover:bg-slate-900 transition-all shadow-lg"
+              >
+                ตกลง เข้าใจแล้ว
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Error Modal (Server Error) */}
+      <AnimatePresence>
+        {error && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setError(null)}
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative bg-white rounded-[3rem] shadow-2xl p-12 max-w-lg w-full text-center overflow-hidden border border-red-100"
+            >
+              <div className="absolute top-0 left-0 w-full h-2 bg-red-600" />
+              <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-8">
+                <X className="w-10 h-10 text-red-600" />
+              </div>
+              <h3 className="text-2xl font-serif font-medium text-slate-800 mb-4">เกิดข้อผิดพลาด</h3>
+              <p className="text-slate-500 font-light leading-relaxed mb-10">
+                {error}
+              </p>
+              
+              <div className="space-y-4">
+                <a 
+                  href="https://line.me/ti/p/@loeimisty"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-5 bg-[#00B900] text-white rounded-2xl font-bold hover:bg-[#009900] transition-all shadow-lg flex items-center justify-center gap-3"
+                >
+                  <MessageCircle className="w-6 h-6" />
+                  ติดต่อผ่าน LINE
+                </a>
+                <button 
+                  onClick={() => setError(null)}
+                  className="w-full py-5 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all"
+                >
+                  ปิด
                 </button>
               </div>
             </motion.div>
