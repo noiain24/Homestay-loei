@@ -1,42 +1,121 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap');
 @import "tailwindcss";
 
+@theme {
+  --font-serif: "Playfair Display", serif;
+  --font-sans: "Inter", sans-serif;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: #FAFAFA;
+  color: #1A1A1A;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, .font-serif {
+  font-family: var(--font-serif);
+}
+
 /* Custom styles for booked dates in react-datepicker */
-.react-datepicker__day--booked {
-  background-color: #ef4444 !important;
+.react-datepicker {
+  font-family: var(--font-sans) !important;
+  border: none !important;
+  border-radius: 1.5rem !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+  overflow: hidden;
+}
+
+.react-datepicker__header {
+  background-color: white !important;
+  border-bottom: 1px solid #F3F4F6 !important;
+  padding-top: 1.5rem !important;
+}
+
+.react-datepicker__current-month {
+  font-family: var(--font-serif) !important;
+  font-size: 1.1rem !important;
+  color: #064E3B !important;
+  font-weight: 600 !important;
+}
+
+.react-datepicker__day--selected, 
+.react-datepicker__day--in-selecting-range, 
+.react-datepicker__day--in-range {
+  background-color: #064E3B !important;
   color: white !important;
-  border-radius: 0.5rem !important;
+  border-radius: 50% !important;
+}
+
+.react-datepicker__day--keyboard-selected {
+  background-color: rgba(6, 78, 59, 0.1) !important;
+  color: #064E3B !important;
+  border-radius: 50% !important;
+}
+
+.react-datepicker__day--booked {
+  background-color: #F3F4F6 !important;
+  color: #9CA3AF !important;
+  border-radius: 50% !important;
   position: relative;
-}
-
-.react-datepicker__day--booked:hover {
-  background-color: #dc2626 !important;
-}
-
-.react-datepicker__day--disabled {
-  color: #ccc !important;
   cursor: not-allowed !important;
 }
 
 .react-datepicker__day--booked::after {
-  content: 'จองแล้ว';
+  content: 'full';
   position: absolute;
-  bottom: 2px;
+  bottom: 4px;
   left: 50%;
   transform: translateX(-50%);
   font-size: 6px;
-  white-space: nowrap;
+  font-weight: 700;
+  color: #9CA3AF;
+  text-transform: uppercase;
 }
 
 .datepicker-input {
   width: 100%;
-  padding: 0.75rem 1rem;
-  border-radius: 0.75rem;
-  border: 1px solid #e2e8f0;
+  padding: 1rem 1rem 1rem 3rem !important;
+  border-radius: 1rem !important;
+  border: 1px solid #e2e8f0 !important;
+  background-color: rgba(248, 250, 252, 0.5) !important;
+  backdrop-filter: blur(4px);
   outline: none;
-  transition: all 0.2s;
+  transition: all 0.3s ease;
+  font-family: var(--font-sans);
 }
 
 .datepicker-input:focus {
-  border-color: #B8860B;
-  box-shadow: 0 0 0 2px rgba(184, 134, 11, 0.2);
+  border-color: #B8860B !important;
+  background-color: white !important;
+  box-shadow: 0 0 0 1px rgba(184, 134, 11, 0.1) !important;
+}
+
+/* Glassmorphism */
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Smooth horizontal scroll */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Skeleton animation */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite linear;
 }

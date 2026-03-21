@@ -21,14 +21,22 @@ import {
   CheckCircle2, 
   ChevronRight, 
   Wifi, 
-  Coffee, 
   Wind, 
-  Waves,
   Loader2,
   X,
   Search,
   Trash2,
-  AlertCircle
+  AlertCircle,
+  Check,
+  Users,
+  Mountain,
+  Facebook,
+  ArrowUp,
+  Tv,
+  Utensils,
+  Bath,
+  Snowflake,
+  Coffee
 } from 'lucide-react';
 
 const N8N_WEBHOOK_URL = "/api/booking";
@@ -37,13 +45,30 @@ const ROOM_STATUS_WEBHOOK_URL = "/api/gas-room-status";
 // Fixed Spreadsheet ID
 const SHEET_ID = "18enn4tE_3yCxfYha-qha6_S7ifzZ2ulRX8bnPhQrweQ";
 
-// Theme Colors
+// Theme Colors - Quiet Luxury Palette
 const COLORS = {
-  leafGreen: "#2D5A27",
-  woodBrown: "#B8860B",
-  cloudWhite: "#F8F9FA",
-  mistyGray: "#E5E7EB",
+  emerald: "#064E3B",
+  gold: "#B8860B",
+  offWhite: "#FAFAFA",
+  cream: "#F5F5DC",
+  ink: "#1A1A1A",
+  muted: "#6B7280",
 };
+
+const SkeletonRoom = () => (
+  <div className="bg-white rounded-[2rem] overflow-hidden shadow-sm border border-black/5">
+    <div className="h-64 bg-slate-100 animate-pulse" />
+    <div className="p-8 space-y-4">
+      <div className="h-6 w-3/4 bg-slate-100 animate-pulse rounded-lg" />
+      <div className="h-4 w-full bg-slate-100 animate-pulse rounded-lg" />
+      <div className="h-4 w-5/6 bg-slate-100 animate-pulse rounded-lg" />
+      <div className="pt-4 flex gap-4">
+        <div className="h-12 flex-1 bg-slate-100 animate-pulse rounded-xl" />
+        <div className="h-12 flex-1 bg-slate-100 animate-pulse rounded-xl" />
+      </div>
+    </div>
+  </div>
+);
 
 // Helper to find value in row regardless of header casing or spaces/underscores
 const getValue = (row: any, ...keys: string[]) => {
@@ -185,7 +210,22 @@ export default function App() {
   const [slipPreview, setSlipPreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
+  const [showTermsOfService, setShowTermsOfService] = useState(false);
+  const [showBackToTop, setShowBackToTop] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowBackToTop(window.scrollY > 500);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
   const [urlUserId, setUrlUserId] = useState<string>('');
   const [facebookId, setFacebookId] = useState<string>('');
   const [bookedDates, setBookedDates] = useState<{[roomName: string]: Date[]}>({});
@@ -269,14 +309,19 @@ export default function App() {
           const allImages = galleryUrlsRaw.length > 0 ? galleryUrlsRaw : imageUrlsRaw;
           const mainImage = imageUrlsRaw[0] || "";
 
-          // Handle Capacity and Amenities
-          const rawCapacity = getValue(row, 'Capacity', 'capacity').toString();
-          const hasAmenitiesInCapacity = rawCapacity.includes(',') || rawCapacity.includes('แอร์') || rawCapacity.includes('Wifi');
+          // Handle Capacity and Amenities based on user's specific sheet structure
+          // Column H (People) = Capacity in UI
+          // Column D (Capacity) = Amenities in UI
+          const rawPeople = getValue(row, 'People', 'จำนวนผู้เข้าพัก', 'Guest').toString();
+          const rawCapacityCol = getValue(row, 'Capacity', 'capacity').toString();
+          
+          // In user's sheet, 'Capacity' column actually contains amenities
+          const hasAmenitiesInCapacity = rawCapacityCol.includes(',') || rawCapacityCol.includes('แอร์') || rawCapacityCol.includes('Wifi');
           
           const rawAmenities = getValue(row, 'Amenities', 'amenities');
           const sheetAmenities = rawAmenities 
             ? rawAmenities.toString().split(',').map((s: string) => s.trim()) 
-            : (hasAmenitiesInCapacity ? rawCapacity.split(',').map((s: string) => s.trim()) : []);
+            : (hasAmenitiesInCapacity ? rawCapacityCol.split(',').map((s: string) => s.trim()) : []);
 
           return {
             id: roomId.toString(),
@@ -287,7 +332,7 @@ export default function App() {
             image: mainImage,
             images: allImages.length > 0 ? allImages : [mainImage],
             amenities: sheetAmenities,
-            capacity: hasAmenitiesInCapacity ? "" : rawCapacity
+            capacity: rawPeople || (hasAmenitiesInCapacity ? "" : rawCapacityCol)
           };
         }).filter((room: any) => room !== null);
 
@@ -758,7 +803,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] text-slate-800 font-sans selection:bg-[#B8860B]/30">
+    <div className="min-h-screen bg-[#FAFAFA] text-slate-800 font-sans selection:bg-[#B8860B]/30">
       {/* n8n Configuration Warning */}
       {n8nError && (
         <div className="fixed bottom-4 right-4 z-50 max-w-md bg-red-50 border-l-4 border-red-500 p-4 shadow-lg rounded-r-lg animate-bounce">
@@ -781,140 +826,164 @@ export default function App() {
       )}
 
       {/* Navbar */}
-      <nav className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-md border-b border-slate-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-[#2D5A27] rounded-lg flex items-center justify-center">
+      <nav className="fixed top-0 w-full z-50 bg-white/70 backdrop-blur-xl border-b border-[#B8860B]/10">
+        <div className="max-w-7xl mx-auto px-6 lg:px-12">
+          <div className="flex justify-between items-center h-20">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-[#064E3B] rounded-full flex items-center justify-center shadow-lg shadow-[#064E3B]/20">
                 <Wind className="text-white w-5 h-5" />
               </div>
-              <span className="text-xl font-bold tracking-tight text-[#2D5A27]">
-                Loei Misty Homestay
+              <span className="text-xl font-serif font-semibold tracking-tight text-[#064E3B]">
+                Loei Misty
               </span>
+            </div>
+            <div className="hidden md:flex items-center gap-8">
+              <button onClick={() => document.getElementById('rooms')?.scrollIntoView({ behavior: 'smooth' })} className="text-sm font-medium text-slate-600 hover:text-[#064E3B] transition-colors">ที่พัก</button>
+              <button onClick={() => document.getElementById('manage-booking')?.scrollIntoView({ behavior: 'smooth' })} className="text-sm font-medium text-slate-600 hover:text-[#064E3B] transition-colors">การจองของฉัน</button>
+              <button 
+                onClick={() => document.getElementById('booking-form')?.scrollIntoView({ behavior: 'smooth' })}
+                className="bg-[#064E3B] text-white px-6 py-2.5 rounded-full text-sm font-semibold hover:bg-[#053F30] transition-all shadow-md shadow-[#064E3B]/10"
+              >
+                จองตอนนี้
+              </button>
             </div>
           </div>
         </div>
       </nav>
 
-      <main className="pt-16">
+      <main className="pt-20">
         {/* Hero Section */}
-        <section className="relative h-[40vh] sm:h-[50vh] flex items-center justify-center bg-white">
+        <section className="relative min-h-[70vh] flex items-center justify-center bg-[#F5F5DC]/30 overflow-hidden">
+          <div className="absolute inset-0 z-0">
+            <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-[#064E3B]/5 rounded-full blur-[120px]" />
+            <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-[#B8860B]/5 rounded-full blur-[120px]" />
+          </div>
+
           <motion.div 
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="relative text-center px-4 max-w-3xl"
+            transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }}
+            className="relative z-10 text-center px-6 max-w-4xl"
           >
-            <h1 className="text-4xl sm:text-6xl font-bold text-[#2D5A27] mb-4">
-              Loei Misty Homestay <br />
-              <span className="text-[#B8860B]">ท่ามกลางสายหมอก</span>
-            </h1>
-            <p className="text-lg text-slate-600 mb-8 max-w-xl mx-auto">
-              สัมผัสวิถีชีวิตที่เรียบง่ายและความงามของธรรมชาติในจังหวัดเลย 
-              ที่ไฮตาก เราพร้อมดูแลคุณ
-            </p>
-            <button 
-              onClick={() => document.getElementById('rooms')?.scrollIntoView({ behavior: 'smooth' })}
-              className="inline-flex items-center gap-2 bg-[#2D5A27] text-white px-8 py-4 rounded-full text-lg font-semibold hover:scale-105 transition-transform shadow-lg"
+            <motion.span 
+              initial={{ opacity: 0, letterSpacing: "0.2em" }}
+              animate={{ opacity: 1, letterSpacing: "0.4em" }}
+              transition={{ delay: 0.2, duration: 1 }}
+              className="block text-[#B8860B] font-sans text-xs font-bold uppercase mb-6"
             >
-              จองห้องพักเลย <ChevronRight className="w-5 h-5" />
-            </button>
+              สัมผัสศิลปะแห่งการใช้ชีวิต
+            </motion.span>
+            <h1 className="text-5xl sm:text-7xl md:text-8xl font-serif font-medium text-[#064E3B] leading-[1.1] mb-8">
+              Loei Misty <br />
+              <span className="italic font-normal text-[#B8860B]">Homestay</span>
+            </h1>
+            <p className="text-lg sm:text-xl text-slate-600 mb-12 max-w-2xl mx-auto font-light leading-relaxed">
+              สัมผัสความหรูหราที่เรียบง่ายท่ามกลางทะเลหมอกและขุนเขา 
+              ที่พักระดับพรีเมียมที่ออกแบบมาเพื่อการพักผ่อนอย่างแท้จริง
+            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
+              <button 
+                onClick={() => document.getElementById('rooms')?.scrollIntoView({ behavior: 'smooth' })}
+                className="group relative inline-flex items-center gap-3 bg-[#064E3B] text-white px-10 py-5 rounded-full text-lg font-semibold hover:bg-[#053F30] transition-all shadow-xl shadow-[#064E3B]/20 border border-[#B8860B]/20"
+              >
+                จองที่พักของคุณ <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </button>
+              <button 
+                onClick={() => document.getElementById('manage-booking')?.scrollIntoView({ behavior: 'smooth' })}
+                className="text-slate-600 font-medium hover:text-[#064E3B] transition-colors border-b border-slate-300 hover:border-[#064E3B] pb-1"
+              >
+                จัดการการจอง
+              </button>
+            </div>
           </motion.div>
         </section>
 
         {/* Room Selection */}
-        <section id="rooms" className="max-w-7xl mx-auto px-4 py-20 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
+        <section id="rooms" className="max-w-7xl mx-auto px-6 py-32 lg:px-12">
+          <div className="text-center mb-20">
             <motion.span 
               initial={{ opacity: 0 }}
               whileInView={{ opacity: 1 }}
-              className="text-[#B8860B] font-bold tracking-widest uppercase text-sm"
+              className="text-[#B8860B] font-sans font-bold tracking-[0.3em] uppercase text-xs mb-4 block"
             >
-              Our Accommodations
+              คอลเลกชันที่คัดสรรมาเพื่อคุณ
             </motion.span>
             <motion.h2 
               initial={{ opacity: 0, y: 10 }}
               whileInView={{ opacity: 1, y: 0 }}
-              className="text-3xl sm:text-4xl font-bold text-[#2D5A27] mt-2"
+              className="text-4xl sm:text-5xl font-serif font-medium text-[#064E3B]"
             >
-              เลือกห้องพักที่คุณต้องการ
+              ที่พักของเรา
             </motion.h2>
           </div>
 
           {isRoomsLoading ? (
-            <div className="flex flex-col items-center justify-center py-20">
-              <Loader2 className="w-10 h-10 text-[#2D5A27] animate-spin mb-4" />
-              <p className="text-slate-500">กำลังโหลดข้อมูลห้องพัก...</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
+              {[1, 2, 3].map(i => <SkeletonRoom key={i} />)}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
               {rooms.map((room, index) => (
                 <motion.div
                   key={room.id}
                   initial={{ opacity: 0, y: 30 }}
                   whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
+                  transition={{ delay: index * 0.1, duration: 0.8 }}
                   viewport={{ once: true }}
-                  className={`group relative bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-100 ${selectedRoom?.id === room.id ? 'ring-2 ring-[#B8860B]' : ''}`}
+                  className={`group relative bg-white rounded-[2rem] overflow-hidden shadow-sm hover:shadow-2xl hover:shadow-[#B8860B]/5 transition-all duration-500 border border-black/5 ${selectedRoom?.id === room.id ? 'ring-2 ring-[#B8860B] ring-offset-4' : 'hover:border-[#B8860B]/30'}`}
                 >
-                  <div className="relative h-56 overflow-hidden">
+                  <div className="relative h-72 overflow-hidden">
                     <img 
                       src={getDirectLink(room.image)} 
                       alt={room.name} 
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000"
                       referrerPolicy="no-referrer"
                     />
-                    <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-sm font-bold text-[#2D5A27]">
-                      ฿{room.price.toLocaleString()} / คืน
+                    <div className="absolute top-6 right-6 bg-white/90 backdrop-blur-md px-4 py-2 rounded-full text-sm font-bold text-[#064E3B] shadow-sm border border-[#B8860B]/20 font-sans">
+                      ฿{room.price.toLocaleString()}
                     </div>
                   </div>
-                  <div className="p-6">
-                    <div className="flex justify-between items-start mb-2">
-                      <h3 className="text-xl font-bold text-slate-800">{room.name}</h3>
+                  <div className="p-8">
+                    <div className="flex justify-between items-start mb-4">
+                      <h3 className="text-2xl font-serif font-medium text-slate-800">{room.name}</h3>
                       {room.capacity && (
-                        <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded-lg">
-                          พักได้ {room.capacity}
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-[#B8860B] bg-[#B8860B]/5 px-2 py-1 rounded">
+                          {room.capacity}
                         </span>
                       )}
                     </div>
-                    <p className="text-slate-500 text-sm mb-4 line-clamp-2">{room.description}</p>
+                    <p className="text-slate-500 text-sm mb-8 line-clamp-2 font-light leading-relaxed">{room.description}</p>
                     
-                    <div className="flex flex-wrap gap-2 mb-6">
-                      {room.amenities.slice(0, 3).map(amenity => (
-                        <span key={amenity} className="text-[10px] bg-slate-50 text-slate-600 px-2 py-1 rounded-md border border-slate-100">
+                    <div className="flex flex-wrap gap-3 mb-10">
+                      {room.amenities.slice(0, 4).map(amenity => (
+                        <span key={amenity} className="text-[10px] font-medium uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-0.5">
                           {amenity}
                         </span>
                       ))}
-                      {room.amenities.length > 3 && (
-                        <span className="text-[10px] bg-slate-50 text-slate-600 px-2 py-1 rounded-md border border-slate-100">
-                          +{room.amenities.length - 3}
-                        </span>
-                      )}
                     </div>
 
-                    <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-4">
                       <button 
                         onClick={() => {
                           setViewingRoom(room);
                           setActiveImageIndex(0);
                         }}
-                        className="w-full py-2 rounded-xl font-semibold text-[#B8860B] border border-[#B8860B] hover:bg-[#B8860B] hover:text-white transition-all"
+                        className="py-3.5 rounded-xl font-semibold text-sm text-[#064E3B] bg-slate-50 hover:bg-slate-100 transition-all text-center"
                       >
-                        ดูรายละเอียด
+                        รายละเอียด
                       </button>
                       <button 
                         onClick={() => {
                           setSelectedRoom(room);
                           document.getElementById('booking-form')?.scrollIntoView({ behavior: 'smooth' });
                         }}
-                        data-room={room.name}
-                        className={`w-full py-3 rounded-xl font-semibold transition-all ${
+                        className={`py-3.5 rounded-xl font-semibold text-sm transition-all shadow-md ${
                           selectedRoom?.id === room.id 
-                            ? 'bg-[#2D5A27] text-white' 
-                            : 'bg-green-600 text-white hover:bg-green-700'
+                            ? 'bg-[#B8860B] text-white' 
+                            : 'bg-[#064E3B] text-white hover:bg-[#053F30]'
                         }`}
                       >
-                        {selectedRoom?.id === room.id ? 'เลือกแล้ว' : 'เลือกห้องนี้ (ว่าง)'}
+                        {selectedRoom?.id === room.id ? 'เลือกแล้ว' : 'จองตอนนี้'}
                       </button>
                     </div>
                   </div>
@@ -925,155 +994,166 @@ export default function App() {
         </section>
 
         {/* Booking Form Section */}
-        <section id="booking-form" className="bg-[#2D5A27] py-24 relative overflow-hidden">
+        <section id="booking-form" className="bg-[#064E3B] py-32 relative overflow-hidden">
           {/* Decorative elements */}
-          <div className="absolute top-0 left-0 w-64 h-64 bg-white/5 rounded-full -translate-x-1/2 -translate-y-1/2 blur-3xl" />
-          <div className="absolute bottom-0 right-0 w-96 h-96 bg-[#B8860B]/10 rounded-full translate-x-1/3 translate-y-1/3 blur-3xl" />
+          <div className="absolute top-0 left-0 w-96 h-96 bg-white/5 rounded-full -translate-x-1/2 -translate-y-1/2 blur-[120px]" />
+          <div className="absolute bottom-0 right-0 w-[40rem] h-[40rem] bg-[#B8860B]/10 rounded-full translate-x-1/3 translate-y-1/3 blur-[120px]" />
 
-          <div className="max-w-4xl mx-auto px-4 relative z-10">
-            <div className="bg-white rounded-[2.5rem] shadow-2xl overflow-hidden p-8 sm:p-12">
-              <div className="text-center mb-10">
-                <h2 className="text-3xl font-bold text-slate-800">ข้อมูลการจอง</h2>
-                <p className="text-slate-500 mt-2">กรุณากรอกข้อมูลเพื่อยืนยันการเข้าพัก</p>
+          <div className="max-w-5xl mx-auto px-6 relative z-10">
+            <div className="bg-white rounded-[3rem] shadow-2xl overflow-hidden p-8 sm:p-16 border border-[#B8860B]/10">
+              <div className="text-center mb-16">
+                <span className="text-[#B8860B] font-sans font-bold tracking-[0.3em] uppercase text-xs mb-4 block">รายละเอียดการจอง</span>
+                <h2 className="text-4xl font-serif font-medium text-slate-800">ข้อมูลการจอง</h2>
+                <p className="text-slate-500 mt-4 font-light">กรุณาระบุข้อมูลของคุณเพื่อยืนยันการเข้าพักที่ Loei Misty</p>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-8">
+              <form onSubmit={handleSubmit} className="space-y-12">
                 {/* Room Summary if selected */}
                 {selectedRoom && (
                   <motion.div 
-                    initial={{ opacity: 0, scale: 0.95 }}
+                    initial={{ opacity: 0, scale: 0.98 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="bg-[#F8F9FA] p-4 rounded-2xl border border-slate-100 flex items-center gap-4"
+                    className="bg-slate-50 p-6 rounded-3xl border border-black/5 flex items-center gap-6"
                   >
-                    <img src={getDirectLink(selectedRoom.image)} className="w-20 h-20 rounded-xl object-cover" alt="" />
+                    <img src={getDirectLink(selectedRoom.image)} className="w-24 h-24 rounded-2xl object-cover shadow-sm" alt="" />
                     <div>
-                      <p className="text-xs font-bold text-[#B8860B] uppercase tracking-wider">ห้องที่เลือก</p>
-                      <h4 className="font-bold text-slate-800">{selectedRoom.name}</h4>
-                      <p className="text-sm text-slate-500">฿{selectedRoom.price.toLocaleString()} / คืน</p>
+                      <p className="text-[10px] font-bold text-[#B8860B] uppercase tracking-[0.2em] mb-1">ห้องที่เลือก</p>
+                      <h4 className="text-xl font-serif font-medium text-slate-800">{selectedRoom.name}</h4>
+                      <p className="text-sm text-slate-500 font-light">฿{selectedRoom.price.toLocaleString()} ต่อคืน</p>
                     </div>
                   </motion.div>
                 )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-8">
                   {/* Name */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                      <User className="w-4 h-4 text-[#B8860B]" /> ชื่อ-นามสกุล
+                  <div className="space-y-3">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                      ชื่อ-นามสกุล
                     </label>
-                    <input 
-                      type="text" 
-                      required
-                      value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                      placeholder="เช่น สมชาย ใจดี"
-                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#B8860B] focus:border-transparent outline-none transition-all"
-                    />
+                    <div className="relative">
+                      <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#B8860B]" />
+                      <input 
+                        type="text" 
+                        required
+                        value={customerName}
+                        onChange={(e) => setCustomerName(e.target.value)}
+                        placeholder="เช่น สมชาย ใจดี"
+                        className="w-full pl-12 pr-4 py-4 rounded-2xl border border-slate-200 focus:ring-1 focus:ring-[#B8860B] focus:border-[#B8860B] outline-none transition-all bg-slate-50/50"
+                      />
+                    </div>
                   </div>
 
                   {/* Phone */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                      <Phone className="w-4 h-4 text-[#B8860B]" /> เบอร์โทรศัพท์
+                  <div className="space-y-3">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                      เบอร์โทรศัพท์
                     </label>
-                    <input 
-                      type="tel" 
-                      required
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="0812345678"
-                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#B8860B] focus:border-transparent outline-none transition-all"
-                    />
+                    <div className="relative">
+                      <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#B8860B]" />
+                      <input 
+                        type="tel" 
+                        required
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="0812345678"
+                        className="w-full pl-12 pr-4 py-4 rounded-2xl border border-slate-200 focus:ring-1 focus:ring-[#B8860B] focus:border-[#B8860B] outline-none transition-all bg-slate-50/50"
+                      />
+                    </div>
                   </div>
 
                   {/* Email */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                      <Mail className="w-4 h-4 text-[#B8860B]" /> อีเมล (สำหรับรับยืนยันการจอง)
+                  <div className="space-y-3">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                      อีเมล
                     </label>
-                    <input 
-                      type="email" 
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="example@gmail.com"
-                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#B8860B] focus:border-transparent outline-none transition-all"
-                    />
+                    <div className="relative">
+                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#B8860B]" />
+                      <input 
+                        type="email" 
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="example@gmail.com"
+                        className="w-full pl-12 pr-4 py-4 rounded-2xl border border-slate-200 focus:ring-1 focus:ring-[#B8860B] focus:border-[#B8860B] outline-none transition-all bg-slate-50/50"
+                      />
+                    </div>
                   </div>
 
                   {/* Check-in */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-[#B8860B]" /> วันที่เช็คอิน
+                  <div className="space-y-3">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                      วันที่เช็คอิน
                     </label>
-                    <DatePicker
-                      selected={checkIn}
-                      onChange={(date) => setCheckIn(date)}
-                      selectsStart
-                      startDate={checkIn}
-                      endDate={checkOut}
-                      minDate={today}
-                      excludeDates={selectedRoom ? bookedDates[selectedRoom.name.trim()] || [] : []}
-                      dayClassName={(date) => {
-                        if (!selectedRoom) return "";
-                        const isBooked = (bookedDates[selectedRoom.name.trim()] || []).some(d => isSameDay(d, date));
-                        return isBooked ? "react-datepicker__day--booked" : "";
-                      }}
-                      placeholderText="เลือกวันที่เช็คอิน"
-                      className="datepicker-input"
-                      dateFormat="dd/MM/yyyy"
-                      locale={th}
-                      required
-                    />
+                    <div className="relative">
+                      <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#B8860B] z-10" />
+                      <DatePicker
+                        selected={checkIn}
+                        onChange={(date) => setCheckIn(date)}
+                        selectsStart
+                        startDate={checkIn}
+                        endDate={checkOut}
+                        minDate={today}
+                        excludeDates={selectedRoom ? bookedDates[selectedRoom.name.trim()] || [] : []}
+                        placeholderText="เลือกวันที่เช็คอิน"
+                        className="datepicker-input"
+                        wrapperClassName="w-full"
+                        dateFormat="dd/MM/yyyy"
+                        locale={th}
+                        required
+                      />
+                    </div>
                   </div>
 
                   {/* Check-out */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-[#B8860B]" /> วันที่เช็คเอาท์
+                  <div className="space-y-3">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                      วันที่เช็คเอาท์
                     </label>
-                    <DatePicker
-                      selected={checkOut}
-                      onChange={(date) => setCheckOut(date)}
-                      selectsEnd
-                      startDate={checkIn}
-                      endDate={checkOut}
-                      minDate={checkIn || today}
-                      excludeDates={selectedRoom ? bookedDates[selectedRoom.name.trim()] || [] : []}
-                      dayClassName={(date) => {
-                        if (!selectedRoom) return "";
-                        const isBooked = (bookedDates[selectedRoom.name.trim()] || []).some(d => isSameDay(d, date));
-                        return isBooked ? "react-datepicker__day--booked" : "";
-                      }}
-                      placeholderText="เลือกวันที่เช็คเอาท์"
-                      className="datepicker-input"
-                      dateFormat="dd/MM/yyyy"
-                      locale={th}
-                      required
-                    />
+                    <div className="relative">
+                      <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#B8860B] z-10" />
+                      <DatePicker
+                        selected={checkOut}
+                        onChange={(date) => setCheckOut(date)}
+                        selectsEnd
+                        startDate={checkIn}
+                        endDate={checkOut}
+                        minDate={checkIn || today}
+                        excludeDates={selectedRoom ? bookedDates[selectedRoom.name.trim()] || [] : []}
+                        placeholderText="เลือกวันที่เช็คเอาท์"
+                        className="datepicker-input"
+                        wrapperClassName="w-full"
+                        dateFormat="dd/MM/yyyy"
+                        locale={th}
+                        required
+                      />
+                    </div>
                   </div>
                 </div>
 
                 {/* Payment Info */}
-                <div className="bg-[#F8F9FA] p-8 rounded-3xl border border-dashed border-slate-300">
-                  <div className="flex flex-col sm:flex-row items-center gap-8">
-                    <div className="text-center sm:text-left flex-1">
-                      <h3 className="text-xl font-bold text-[#2D5A27] mb-2">ชำระเงินผ่านการโอน</h3>
-                      <p className="text-slate-600 text-sm mb-4">
-                        ธนาคารกสิกรไทย (K-Bank)<br />
-                        เลขบัญชี: <span className="font-bold text-slate-800">123-4-56789-0</span><br />
-                        ชื่อบัญชี: <span className="font-bold text-slate-800">บจก. เลย มิสตี้ โฮมสเตย์</span>
+                <div className="bg-[#F5F5DC]/20 p-8 sm:p-12 rounded-[2.5rem] border border-[#B8860B]/10">
+                  <div className="flex flex-col lg:flex-row items-center gap-12">
+                    <div className="text-center lg:text-left flex-1">
+                      <h3 className="text-2xl font-serif font-medium text-[#064E3B] mb-4">ข้อมูลการชำระเงิน</h3>
+                      <p className="text-slate-600 text-sm mb-6 font-light leading-relaxed">
+                        กรุณาโอนเงินตามยอดรวมไปยังบัญชีต่อไปนี้เพื่อยืนยันการจองของคุณ
                       </p>
-                      <div className="bg-white p-2 inline-block rounded-xl shadow-sm border border-slate-100">
+                      <div className="space-y-2 mb-8">
+                        <p className="text-sm text-slate-500">ธนาคาร: <span className="text-slate-800 font-medium">กสิกรไทย (K-Bank)</span></p>
+                        <p className="text-sm text-slate-500">เลขที่บัญชี: <span className="text-slate-800 font-medium tracking-wider">123-4-56789-0</span></p>
+                        <p className="text-sm text-slate-500">ชื่อบัญชี: <span className="text-slate-800 font-medium">บริษัท เลย มิสตี้ โฮมสเตย์ จำกัด</span></p>
+                      </div>
+                      <div className="bg-white p-4 inline-block rounded-[2rem] shadow-xl shadow-[#B8860B]/5 border border-black/5">
                         <img 
                           src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=LoeiMistyHomestay" 
-                          alt="QR Code Payment" 
+                          alt="คิวอาร์โค้ดสำหรับชำระเงิน" 
                           className="w-32 h-32"
                         />
                       </div>
                     </div>
 
-                    <div className="w-full sm:w-64">
-                      <label className="block text-sm font-bold text-slate-700 mb-2">อัปโหลดสลิปยืนยัน</label>
+                    <div className="w-full lg:w-72">
+                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 text-center lg:text-left">อัปโหลดสลิปการโอนเงิน</label>
                       <div className="relative group">
                         <input 
                           type="file" 
@@ -1081,13 +1161,15 @@ export default function App() {
                           onChange={handleFileChange}
                           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                         />
-                        <div className={`h-40 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center transition-all ${slipPreview ? 'border-[#2D5A27] bg-[#2D5A27]/5' : 'border-slate-300 group-hover:border-[#B8860B] bg-slate-50'}`}>
+                        <div className={`h-56 rounded-[2rem] border border-dashed flex flex-col items-center justify-center transition-all duration-500 ${slipPreview ? 'border-[#064E3B] bg-[#064E3B]/5' : 'border-slate-300 group-hover:border-[#B8860B] bg-slate-50/50'}`}>
                           {slipPreview ? (
-                            <img src={slipPreview} className="h-full w-full object-contain p-2" alt="Slip Preview" />
+                            <img src={slipPreview} className="h-full w-full object-contain p-4 rounded-[2rem]" alt="ตัวอย่างสลิปโอนเงิน" />
                           ) : (
                             <>
-                              <Upload className="w-8 h-8 text-slate-400 mb-2 group-hover:text-[#B8860B] transition-colors" />
-                              <span className="text-xs text-slate-500">คลิกเพื่ออัปโหลด</span>
+                              <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-sm mb-4 group-hover:scale-110 transition-transform">
+                                <Upload className="w-5 h-5 text-[#B8860B]" />
+                              </div>
+                              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">เลือกไฟล์</span>
                             </>
                           )}
                         </div>
@@ -1097,29 +1179,29 @@ export default function App() {
                 </div>
 
                 {/* Total Price & Submit */}
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pt-4 border-t border-slate-100">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-10 pt-12 border-t border-slate-100">
                   <div className="text-center sm:text-left">
-                    <p className="text-sm text-slate-500">ราคาสุทธิ</p>
-                    <p className="text-3xl font-bold text-[#2D5A27]">฿{calculateTotalPrice().toLocaleString()}</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">ยอดรวมทั้งหมด</p>
+                    <p className="text-4xl font-sans font-semibold text-[#064E3B]">฿{calculateTotalPrice().toLocaleString()}</p>
                   </div>
 
                   <button 
                     type="submit"
                     disabled={isSubmitting || isOverlap}
-                    className={`w-full sm:w-auto px-12 py-4 rounded-2xl font-bold text-lg shadow-lg transition-all flex items-center justify-center gap-3 ${
+                    className={`w-full sm:w-auto px-16 py-5 rounded-full font-bold text-lg shadow-xl transition-all flex items-center justify-center gap-4 ${
                       isOverlap 
-                        ? 'bg-gray-400 text-white cursor-not-allowed' 
-                        : 'bg-[#B8860B] text-white hover:bg-[#966D09] hover:shadow-xl'
+                        ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
+                        : 'bg-[#064E3B] text-white hover:bg-[#053F30] hover:shadow-2xl hover:-translate-y-1'
                     }`}
                   >
                     {isSubmitting ? (
                       <>
-                        <Loader2 className="w-5 h-5 animate-spin" /> กำลังส่งข้อมูล...
+                        <Loader2 className="w-5 h-5 animate-spin" /> กำลังดำเนินการ...
                       </>
                     ) : isOverlap ? (
-                      'เต็มแล้วในวันที่คุณเลือก'
+                      'ไม่ว่างในช่วงวันที่เลือก'
                     ) : (
-                      'ยืนยันการจองห้องพัก'
+                      'ยืนยันการจอง'
                     )}
                   </button>
                 </div>
@@ -1128,9 +1210,9 @@ export default function App() {
                   <motion.div 
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="p-4 bg-red-50 text-red-600 rounded-xl text-sm font-medium border border-red-100 flex items-center gap-2"
+                    className="p-5 bg-red-50 text-red-600 rounded-2xl text-sm font-medium border border-red-100 flex items-center gap-3"
                   >
-                    <X className="w-4 h-4" /> {error}
+                    <AlertCircle className="w-5 h-5" /> {error}
                   </motion.div>
                 )}
               </form>
@@ -1139,196 +1221,428 @@ export default function App() {
         </section>
 
         {/* Manage Booking Section */}
-        <section id="manage-booking" className="bg-slate-50 py-24">
-          <div className="max-w-4xl mx-auto px-4">
-            <div className="bg-white rounded-[2.5rem] shadow-xl overflow-hidden p-8 sm:p-12 border border-slate-100">
-              <div className="text-center mb-10">
-                <h2 className="text-3xl font-bold text-slate-800">จัดการการจอง</h2>
-                <p className="text-slate-500 mt-2">ค้นหาประวัติการจองหรือขอยกเลิกการเข้าพัก</p>
-              </div>
+        <section id="manage-booking" className="bg-[#FAFAFA] py-32">
+          <div className="max-w-3xl mx-auto px-6">
+            <div className="text-center mb-16">
+              <span className="text-[#B8860B] font-sans font-bold tracking-[0.3em] uppercase text-xs mb-4 block">การจัดการการจอง</span>
+              <h2 className="text-4xl font-serif font-medium text-slate-800">จัดการการเข้าพักของคุณ</h2>
+              <p className="text-slate-500 mt-4 font-light">กรอกเบอร์โทรศัพท์ของคุณเพื่อดูหรือยกเลิกการจอง</p>
+            </div>
 
-              <div className="max-w-md mx-auto space-y-6">
-                <div className="relative">
-                  <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <div className="bg-white p-10 rounded-[2.5rem] shadow-xl border border-black/5">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="relative flex-1">
+                  <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#B8860B]" />
                   <input 
                     type="tel" 
                     value={searchPhone}
                     onChange={(e) => setSearchPhone(e.target.value)}
-                    placeholder="กรอกเบอร์โทรศัพท์ที่ใช้จอง"
-                    className="w-full pl-12 pr-4 py-4 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-[#B8860B] focus:border-transparent outline-none transition-all"
+                    placeholder="กรอกเบอร์โทรศัพท์"
+                    className="w-full pl-12 pr-4 py-4 rounded-2xl border border-slate-200 focus:ring-1 focus:ring-[#B8860B] focus:border-[#B8860B] outline-none transition-all bg-slate-50/50"
                   />
                 </div>
-                
                 <button 
                   onClick={handleSearchBooking}
                   disabled={isSearching}
-                  className="w-full py-4 bg-[#2D5A27] text-white rounded-2xl font-bold shadow-lg hover:bg-[#1e3d1a] transition-all flex items-center justify-center gap-2 disabled:opacity-70"
+                  className="px-10 py-4 bg-[#064E3B] text-white rounded-2xl font-bold hover:bg-[#053F30] transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 disabled:opacity-70"
                 >
-                  {isSearching ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
-                  ค้นหาการจอง
+                  {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />} ค้นหา
                 </button>
+              </div>
 
-                {searchError && (
-                  <motion.p 
-                    initial={{ opacity: 0 }} 
-                    animate={{ opacity: 1 }} 
-                    className="text-center text-red-500 text-sm font-medium"
-                  >
-                    {searchError}
-                  </motion.p>
-                )}
+              {searchError && (
+                <motion.p 
+                  initial={{ opacity: 0 }} 
+                  animate={{ opacity: 1 }} 
+                  className="text-center text-red-500 text-sm font-medium mt-4"
+                >
+                  {searchError}
+                </motion.p>
+              )}
 
-                {cancelMessage && (
+              {cancelMessage && (
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.9 }} 
+                  animate={{ opacity: 1, scale: 1 }} 
+                  className="mt-8 p-6 bg-emerald-50 border border-emerald-100 rounded-3xl text-center"
+                >
+                  <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-3" />
+                  <p className="text-emerald-700 font-medium">{cancelMessage}</p>
+                </motion.div>
+              )}
+
+              {/* Search Results */}
+              <AnimatePresence>
+                {searchResult && (
                   <motion.div 
-                    initial={{ opacity: 0, scale: 0.9 }} 
-                    animate={{ opacity: 1, scale: 1 }} 
-                    className="p-6 bg-green-50 border border-green-100 rounded-3xl text-center"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    className="mt-10 pt-10 border-t border-slate-100 space-y-4"
                   >
-                    <CheckCircle2 className="w-10 h-10 text-green-500 mx-auto mb-3" />
-                    <p className="text-green-700 font-medium">{cancelMessage}</p>
+                    <div className="bg-slate-50 p-8 rounded-[2rem] border border-black/5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
+                      <div>
+                        <p className="text-[10px] font-bold text-[#B8860B] uppercase tracking-widest mb-1">พบข้อมูลการจอง</p>
+                        <h4 className="text-2xl font-serif font-medium text-slate-800">{searchResult.customerName}</h4>
+                        <p className="text-slate-500 font-light mt-1">ห้อง: {searchResult.roomName}</p>
+                        <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm font-light">
+                          <p className="text-slate-600">
+                            <span className="font-medium text-[#064E3B]">เช็คอิน:</span> {formatSheetDate(searchResult.checkIn)}
+                          </p>
+                          <p className="text-slate-600">
+                            <span className="font-medium text-[#064E3B]">เช็คเอาท์:</span> {formatSheetDate(searchResult.checkOut)}
+                          </p>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={handleCancelBooking}
+                        disabled={isCancelling}
+                        className="w-full sm:w-auto px-6 py-3 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-100 transition-all flex items-center justify-center gap-2 disabled:opacity-70 text-xs uppercase tracking-widest"
+                      >
+                        {isCancelling ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                        ยกเลิกการเข้าพัก
+                      </button>
+                    </div>
                   </motion.div>
                 )}
-
-                <AnimatePresence>
-                  {searchResult && (
-                    <motion.div 
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -20 }}
-                      className="bg-[#F8F9FA] p-6 rounded-3xl border border-slate-100 space-y-4"
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className="text-xs font-bold text-[#B8860B] uppercase tracking-wider mb-1">พบข้อมูลการจอง</p>
-                          <h4 className="text-xl font-bold text-slate-800">{searchResult.customerName}</h4>
-                          <p className="text-slate-500">ห้องพัก: {searchResult.roomName}</p>
-                          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
-                            <p className="text-slate-600">
-                              <span className="font-semibold text-[#2D5A27]">เช็คอิน:</span> {formatSheetDate(searchResult.checkIn)}
-                            </p>
-                            <p className="text-slate-600">
-                              <span className="font-semibold text-[#2D5A27]">เช็คเอาท์:</span> {formatSheetDate(searchResult.checkOut)}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="bg-white p-2 rounded-xl shadow-sm">
-                          <User className="w-6 h-6 text-[#2D5A27]" />
-                        </div>
-                      </div>
-
-                      <div className="pt-4 border-t border-slate-200">
-                        <button 
-                          onClick={handleCancelBooking}
-                          disabled={isCancelling}
-                          className="w-full py-3 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-100 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
-                        >
-                          {isCancelling ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                          ขอยกเลิกการจองนี้
-                        </button>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+              </AnimatePresence>
             </div>
           </div>
         </section>
       </main>
 
       {/* Footer */}
-      <footer className="bg-white py-12 border-t border-slate-100">
-        <div className="max-w-7xl mx-auto px-4 text-center">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <div className="w-6 h-6 bg-[#2D5A27] rounded flex items-center justify-center">
-              <Wind className="text-white w-4 h-4" />
+      <footer className="bg-[#1A1A1A] text-white py-24">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-20 mb-20">
+            <div className="space-y-10">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-[#B8860B] rounded-full flex items-center justify-center shadow-lg shadow-[#B8860B]/20">
+                  <Mountain className="w-7 h-7 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-3xl font-serif font-medium tracking-tight">Loei Misty</h2>
+                  <p className="text-[10px] font-bold text-[#B8860B] uppercase tracking-[0.4em] mt-1">Homestay & Retreat</p>
+                </div>
+              </div>
+              <p className="text-slate-400 font-light leading-relaxed max-w-md text-lg">
+                สัมผัสความงามอันเงียบสงบของขุนเขาและสายหมอกในจังหวัดเลย ผ่านคอลเลกชันที่พักสุดหรูที่คัดสรรมาเพื่อคุณโดยเฉพาะ เพื่อมอบประสบการณ์การพักผ่อนที่ล้ำค่าที่สุด
+              </p>
+              <div className="flex gap-6 pt-4">
+                <div className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center hover:bg-white/5 hover:border-[#B8860B] transition-all cursor-pointer group">
+                  <Facebook className="w-5 h-5 text-slate-400 group-hover:text-[#B8860B]" />
+                </div>
+              </div>
             </div>
-            <span className="text-lg font-bold text-[#2D5A27]">Loei Homestay</span>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-12">
+              <div className="space-y-8">
+                <h4 className="text-xs font-bold uppercase tracking-[0.3em] text-[#B8860B]">ติดต่อเรา</h4>
+                <ul className="space-y-6 text-slate-400 font-light">
+                  <li className="flex items-start gap-4 hover:text-white transition-colors cursor-pointer group">
+                    <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center group-hover:bg-[#B8860B]/10 transition-colors">
+                      <Phone className="w-4 h-4 text-[#B8860B]" />
+                    </div>
+                    <span className="pt-1">+66 81 234 5678</span>
+                  </li>
+                  <li className="flex items-start gap-4 hover:text-white transition-colors cursor-pointer group">
+                    <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center group-hover:bg-[#B8860B]/10 transition-colors">
+                      <Mail className="w-4 h-4 text-[#B8860B]" />
+                    </div>
+                    <span className="pt-1">contact@loeimisty.com</span>
+                  </li>
+                  <li className="flex items-start gap-4 hover:text-white transition-colors cursor-pointer group">
+                    <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center group-hover:bg-[#B8860B]/10 transition-colors">
+                      <MapPin className="w-4 h-4 text-[#B8860B]" />
+                    </div>
+                    <span className="pt-1 leading-relaxed">อ.ภูเรือ, จ.เลย, ประเทศไทย</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="space-y-8">
+                <h4 className="text-xs font-bold uppercase tracking-[0.3em] text-[#B8860B]">เวลาทำการ</h4>
+                <ul className="space-y-4 text-slate-400 font-light">
+                  <li>
+                    <p className="text-white font-medium mb-1">Check-in</p>
+                    <p className="text-sm">14:00 น. เป็นต้นไป</p>
+                  </li>
+                  <li>
+                    <p className="text-white font-medium mb-1">Check-out</p>
+                    <p className="text-sm">ก่อน 12:00 น.</p>
+                  </li>
+                </ul>
+              </div>
+            </div>
           </div>
-          <p className="text-slate-500 text-sm">
-            © 2026 เลย โฮมสเตย์ - สัมผัสความอบอุ่นท่ามกลางสายหมอก<br />
-             ไฮตาก
-          </p>
+          
+          <div className="pt-12 border-t border-white/5 flex flex-col sm:flex-row justify-between items-center gap-8 text-slate-500 text-[10px] font-bold tracking-[0.2em] uppercase">
+            <p>© 2026 Loei Misty Homestay. สงวนลิขสิทธิ์.</p>
+            <div className="flex gap-12">
+              <span 
+                onClick={() => setShowPrivacyPolicy(true)}
+                className="hover:text-[#B8860B] cursor-pointer transition-colors"
+              >
+                นโยบายความเป็นส่วนตัว
+              </span>
+              <span 
+                onClick={() => setShowTermsOfService(true)}
+                className="hover:text-[#B8860B] cursor-pointer transition-colors"
+              >
+                ข้อกำหนดการให้บริการ
+              </span>
+            </div>
+          </div>
         </div>
       </footer>
 
       {/* Success Modal */}
       <AnimatePresence>
         {isSuccess && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-          >
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-[2rem] p-8 sm:p-12 max-w-md w-full text-center shadow-2xl"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setIsSuccess(false)}
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative bg-white rounded-[3rem] shadow-2xl p-12 max-w-lg w-full text-center overflow-hidden border border-[#B8860B]/20"
             >
-              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <CheckCircle2 className="w-12 h-12 text-green-600" />
+              <div className="absolute top-0 left-0 w-full h-2 bg-[#064E3B]" />
+              <div className="absolute top-2 left-0 w-full h-[1px] bg-[#B8860B]/30" />
+              <div className="w-24 h-24 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-8">
+                <Check className="w-12 h-12 text-[#064E3B]" />
               </div>
-              <h2 className="text-2xl font-bold text-slate-800 mb-2">จองห้องพักสำเร็จ!</h2>
-              <p className="text-slate-500 mb-8">
-                เราได้รับข้อมูลการจองและหลักฐานการโอนเงินของคุณแล้ว 
-                เจ้าหน้าที่จะตรวจสอบและติดต่อกลับโดยเร็วที่สุด
+              <h3 className="text-3xl font-serif font-medium text-slate-800 mb-4">การจองสำเร็จ</h3>
+              <p className="text-slate-500 font-light leading-relaxed mb-10">
+                เราได้รับข้อมูลการจองของคุณแล้ว เราจะตรวจสอบการชำระเงินและส่งอีเมลยืนยันให้คุณในไม่ช้า
               </p>
               <button 
                 onClick={() => setIsSuccess(false)}
-                className="w-full py-4 bg-[#2D5A27] text-white rounded-xl font-bold hover:bg-[#1e3d1a] transition-colors"
+                className="w-full py-5 bg-[#064E3B] text-white rounded-2xl font-bold hover:bg-[#053F30] transition-all shadow-lg hover:shadow-xl"
               >
-                ตกลง
+                ปิด
               </button>
             </motion.div>
-          </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Terms of Service Modal */}
+      <AnimatePresence>
+        {showTermsOfService && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+              onClick={() => setShowTermsOfService(false)}
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 30 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 30 }}
+              className="relative bg-white rounded-[3rem] shadow-2xl max-w-3xl w-full max-h-[85vh] overflow-hidden border border-[#B8860B]/10 flex flex-col"
+            >
+              <div className="p-8 sm:p-12 overflow-y-auto custom-scrollbar">
+                <div className="flex justify-between items-start mb-8">
+                  <div>
+                    <span className="text-[#B8860B] font-sans font-bold tracking-[0.3em] uppercase text-[10px] mb-2 block">Terms & Conditions</span>
+                    <h3 className="text-3xl font-serif font-medium text-slate-800">ข้อกำหนดและเงื่อนไขการให้บริการ</h3>
+                  </div>
+                  <button 
+                    onClick={() => setShowTermsOfService(false)}
+                    className="w-10 h-10 bg-slate-50 hover:bg-slate-100 rounded-full flex items-center justify-center text-slate-400 transition-all"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="prose prose-slate max-w-none space-y-8 text-slate-600 font-light leading-relaxed">
+                  <p>
+                    ยินดีต้อนรับสู่ระบบจองที่พัก Loei Misty การใช้งานเว็บไซต์นี้ถือว่าท่านได้ตกลงและยอมรับข้อกำหนดดังต่อไปนี้:
+                  </p>
+
+                  <section className="space-y-4">
+                    <h4 className="text-lg font-serif font-medium text-[#064E3B]">1. ความถูกต้องของข้อมูลการจอง:</h4>
+                    <p>ผู้ใช้งานตกลงจะให้ข้อมูลที่เป็นจริงและถูกต้องในการจองที่พักเท่านั้น หากพบว่ามีการใช้ข้อมูลเท็จ หรือการแอบอ้างข้อมูลผู้อื่น เราขอสงวนสิทธิ์ในการยกเลิกรายการจองโดยไม่ต้องแจ้งให้ทราบล่วงหน้า</p>
+                  </section>
+
+                  <section className="space-y-4">
+                    <h4 className="text-lg font-serif font-medium text-[#064E3B]">2. กระบวนการจองและยืนยัน:</h4>
+                    <ul className="list-disc pl-5 space-y-2">
+                      <li>สถานะห้องว่างบนเว็บไซต์เป็นข้อมูลแบบ Real-time อย่างไรก็ตาม การจองจะสมบูรณ์ต่อเมื่อระบบตรวจสอบหลักฐานการชำระเงินเรียบร้อยแล้วเท่านั้น</li>
+                      <li>การยืนยันการจองจะถูกส่งผ่านระบบ [อีเมล/LINE] ตามที่ท่านได้ให้ข้อมูลไว้</li>
+                    </ul>
+                  </section>
+
+                  <section className="space-y-4">
+                    <h4 className="text-lg font-serif font-medium text-[#064E3B]">3. การใช้งานเว็บไซต์อย่างเหมาะสม:</h4>
+                    <ul className="list-disc pl-5 space-y-2">
+                      <li>ห้ามมิให้ผู้ใช้งานพยายามแทรกแซง เจาะระบบ หรือกระทำการใดๆ ที่ส่งผลกระทบต่อความเสถียรของเว็บไซต์</li>
+                      <li>เราไม่อนุญาตให้ใช้โปรแกรมอัตโนมัติ (Bot) ในการดึงข้อมูลหรือสร้างรายการจองในปริมาณมากเกินปกติ</li>
+                    </ul>
+                  </section>
+
+                  <section className="space-y-4">
+                    <h4 className="text-lg font-serif font-medium text-[#064E3B]">4. การจำกัดความรับผิดชอบ:</h4>
+                    <p>แม้เราจะใช้ความพยายามอย่างเต็มที่เพื่อให้ระบบทำงานได้อย่างราบรื่น แต่เราไม่สามารถรับรองความต่อเนื่อง 100% ในกรณีที่เกิดเหตุขัดข้องทางเทคนิคเหนือการควบคุม (เช่น ระบบอินเทอร์เน็ตล่ม หรือการขัดข้องจากผู้ให้บริการคลาวด์) อย่างไรก็ตาม เราจะดำเนินการแก้ไขปัญหาให้เร็วที่สุดเพื่อรักษาผลประโยชน์ของผู้ใช้งาน</p>
+                  </section>
+
+                  <section className="space-y-4">
+                    <h4 className="text-lg font-serif font-medium text-[#064E3B]">5. การเปลี่ยนแปลงข้อกำหนด:</h4>
+                    <p>เราขอสงวนสิทธิ์ในการปรับปรุงหรือเปลี่ยนแปลงข้อกำหนดเหล่านี้ได้ทุกเมื่อเพื่อให้สอดคล้องกับมาตรฐานการให้บริการที่ดียิ่งขึ้น</p>
+                  </section>
+                </div>
+              </div>
+              <div className="p-8 bg-slate-50 border-t border-slate-100 flex justify-end">
+                <button 
+                  onClick={() => setShowTermsOfService(false)}
+                  className="px-8 py-3 bg-[#064E3B] text-white rounded-xl font-bold hover:bg-[#053F30] transition-all shadow-md"
+                >
+                  ยอมรับเงื่อนไข
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Privacy Policy Modal */}
+      <AnimatePresence>
+        {showPrivacyPolicy && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+              onClick={() => setShowPrivacyPolicy(false)}
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 30 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 30 }}
+              className="relative bg-white rounded-[3rem] shadow-2xl max-w-3xl w-full max-h-[85vh] overflow-hidden border border-[#B8860B]/10 flex flex-col"
+            >
+              <div className="p-8 sm:p-12 overflow-y-auto custom-scrollbar">
+                <div className="flex justify-between items-start mb-8">
+                  <div>
+                    <span className="text-[#B8860B] font-sans font-bold tracking-[0.3em] uppercase text-[10px] mb-2 block">Legal Information</span>
+                    <h3 className="text-3xl font-serif font-medium text-slate-800">นโยบายความเป็นส่วนตัว</h3>
+                  </div>
+                  <button 
+                    onClick={() => setShowPrivacyPolicy(false)}
+                    className="w-10 h-10 bg-slate-50 hover:bg-slate-100 rounded-full flex items-center justify-center text-slate-400 transition-all"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="prose prose-slate max-w-none space-y-8 text-slate-600 font-light leading-relaxed">
+                  <p>
+                    <strong>Loei Misty</strong> ("เรา") ให้ความสำคัญกับการคุ้มครองข้อมูลส่วนบุคคลของท่าน เพื่อให้ท่านมั่นใจได้ว่าข้อมูลการจองที่พักของท่านจะถูกจัดการอย่างปลอดภัยตามมาตรฐาน พ.ร.บ. คุ้มครองข้อมูลส่วนบุคคล (PDPA)
+                  </p>
+
+                  <section className="space-y-4">
+                    <h4 className="text-lg font-serif font-medium text-[#064E3B]">ข้อมูลที่เราจัดเก็บ:</h4>
+                    <ul className="list-disc pl-5 space-y-2">
+                      <li><strong>ข้อมูลระบุตัวตน:</strong> ชื่อ-นามสกุล, เบอร์โทรศัพท์, LINE ID</li>
+                      <li><strong>ข้อมูลการทำรายการ:</strong> วันที่เข้าพัก, จำนวนผู้เข้าพัก, รายละเอียดห้องพักที่ท่านเลือก</li>
+                      <li><strong>หลักฐานการชำระเงิน:</strong> รูปภาพสลิปการโอนเงินเพื่อใช้ยืนยันการจอง</li>
+                    </ul>
+                  </section>
+
+                  <section className="space-y-4">
+                    <h4 className="text-lg font-serif font-medium text-[#064E3B]">วัตถุประสงค์ในการเก็บข้อมูล:</h4>
+                    <ul className="list-disc pl-5 space-y-2">
+                      <li>เพื่อดำเนินการจองและตรวจสอบสถานะห้องว่างแบบ Real-time ผ่านระบบอัตโนมัติ</li>
+                      <li>เพื่อใช้ติดต่อสื่อสาร แจ้งสถานะการจอง และประสานงานการเข้าพัก</li>
+                      <li>เพื่อป้องกันการจองซ้ำซ้อน (Double Booking) และรักษาความถูกต้องของข้อมูล</li>
+                    </ul>
+                  </section>
+
+                  <section className="space-y-4">
+                    <h4 className="text-lg font-serif font-medium text-[#064E3B]">การรักษาความปลอดภัยและระยะเวลาจัดเก็บ:</h4>
+                    <p>ข้อมูลของท่านจะถูกส่งผ่านระบบที่มีการเข้ารหัสปลอดภัย และจัดเก็บไว้ในฐานข้อมูลคลาวด์มาตรฐานระดับสากล (Google Cloud Infrastructure)</p>
+                    <p>เราจะจัดเก็บข้อมูลไว้เท่าที่จำเป็นสำหรับวัตถุประสงค์ในการให้บริการ และจะลบข้อมูลเมื่อสิ้นสุดระยะเวลาที่กำหนดตามกฎหมาย</p>
+                  </section>
+
+                  <section className="space-y-4">
+                    <h4 className="text-lg font-serif font-medium text-[#064E3B]">สิทธิของเจ้าของข้อมูล:</h4>
+                    <p>ท่านมีสิทธิขอเข้าถึง แก้ไข ลบ หรือขอให้ระงับการใช้ข้อมูลส่วนบุคคลของท่าน โดยสามารถติดต่อเจ้าหน้าที่ผ่านช่องทางที่ระบุไว้บนเว็บไซต์นี้</p>
+                  </section>
+                </div>
+              </div>
+              <div className="p-8 bg-slate-50 border-t border-slate-100 flex justify-end">
+                <button 
+                  onClick={() => setShowPrivacyPolicy(false)}
+                  className="px-8 py-3 bg-[#064E3B] text-white rounded-xl font-bold hover:bg-[#053F30] transition-all shadow-md"
+                >
+                  รับทราบ
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Back to Top Button */}
+      <AnimatePresence>
+        {showBackToTop && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.5 }}
+            onClick={scrollToTop}
+            className="fixed bottom-8 right-8 z-[90] w-12 h-12 bg-[#B8860B] text-white rounded-full flex items-center justify-center shadow-xl hover:bg-[#966D09] transition-all hover:scale-110 active:scale-95"
+          >
+            <ArrowUp className="w-6 h-6" />
+          </motion.button>
         )}
       </AnimatePresence>
 
       {/* Room Detail Modal */}
       <AnimatePresence>
         {viewingRoom && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-          >
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <motion.div 
-              initial={{ y: 50, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 50, opacity: 0 }}
-              className="bg-white rounded-[2rem] max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl flex flex-col"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+              onClick={() => setViewingRoom(null)}
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 30 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 30 }}
+              className="relative bg-white rounded-[3rem] shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden border border-[#B8860B]/10"
             >
-              {/* Modal Header */}
-              <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0 z-10">
-                <h2 className="text-2xl font-bold text-[#2D5A27]">{viewingRoom.name}</h2>
-                <button 
-                  onClick={() => setViewingRoom(null)}
-                  className="p-2 hover:bg-slate-100 rounded-full transition-colors"
-                >
-                  <X className="w-6 h-6 text-slate-400" />
-                </button>
-              </div>
+              <button 
+                onClick={() => setViewingRoom(null)}
+                className="absolute top-6 right-6 z-10 w-12 h-12 bg-white/20 hover:bg-white/40 backdrop-blur-md rounded-full flex items-center justify-center text-white transition-all"
+              >
+                <X className="w-6 h-6" />
+              </button>
 
-              <div className="overflow-y-auto flex-1">
-                {/* Image Gallery */}
-                <div className="relative h-64 sm:h-96 bg-slate-100">
-                  <AnimatePresence mode="wait">
-                    <motion.img
-                      key={activeImageIndex}
-                      src={getDirectLink(viewingRoom.images[activeImageIndex])}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.3 }}
-                      className="w-full h-full object-cover"
-                      referrerPolicy="no-referrer"
-                    />
-                  </AnimatePresence>
+              <div className="flex flex-col md:flex-row h-full">
+                <div className="md:w-1/2 h-80 md:h-auto relative">
+                  <img 
+                    src={getDirectLink(viewingRoom.images[activeImageIndex])} 
+                    className="w-full h-full object-cover"
+                    alt={viewingRoom.name}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent md:hidden" />
                   
                   {/* Gallery Navigation */}
-                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 bg-black/20 backdrop-blur-md p-2 rounded-full">
+                  <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 bg-black/20 backdrop-blur-md p-2 rounded-full">
                     {viewingRoom.images.map((_, idx) => (
                       <button
                         key={idx}
@@ -1338,56 +1652,78 @@ export default function App() {
                     ))}
                   </div>
                 </div>
+                
+                <div className="md:w-1/2 p-10 md:p-16 overflow-y-auto">
+                  <span className="text-[#B8860B] font-sans font-bold tracking-[0.3em] uppercase text-[10px] mb-4 block">ห้องพักสุดหรู</span>
+                  <h3 className="text-4xl font-serif font-medium text-slate-800 mb-6">{viewingRoom.name}</h3>
+                  <p className="text-slate-500 font-light leading-relaxed mb-10">
+                    {viewingRoom.description || viewingRoom.fullDescription || "สัมผัสประสบการณ์การพักผ่อนที่เหนือระดับด้วยห้องพักที่ออกแบบมาอย่างพิถีพิถัน พร้อมสิ่งอำนวยความสะดวกครบครันและวิวทิวทัศน์ที่สวยงาม"}
+                  </p>
+                  
+                  <div className="grid grid-cols-2 gap-8 mb-12">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center">
+                        <Users className="w-5 h-5 text-[#B8860B]" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">จำนวนผู้เข้าพัก</p>
+                        <p className="text-sm font-medium text-slate-700">{viewingRoom.capacity} ท่าน</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center">
+                        <Wifi className="w-5 h-5 text-[#B8860B]" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">อินเทอร์เน็ต</p>
+                        <p className="text-sm font-medium text-slate-700">ความเร็วสูง</p>
+                      </div>
+                    </div>
+                  </div>
 
-                {/* Content */}
-                <div className="p-8">
-                  <div className="flex flex-col md:flex-row gap-8">
-                    <div className="flex-1">
-                      <h3 className="text-lg font-bold text-slate-800 mb-4">รายละเอียดห้องพัก</h3>
-                      {viewingRoom.capacity && (
-                        <div className="mb-4 flex items-center gap-2 text-[#B8860B] font-semibold">
-                          <User className="w-5 h-5" />
-                          <span>จำนวนผู้เข้าพัก: {viewingRoom.capacity}</span>
-                        </div>
-                      )}
-                      <p className="text-slate-600 leading-relaxed mb-6">
-                        {viewingRoom.fullDescription}
-                      </p>
-                      
-                      <h3 className="text-lg font-bold text-slate-800 mb-4">สิ่งอำนวยความสะดวก</h3>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                        {viewingRoom.amenities.map(amenity => (
-                          <div key={amenity} className="flex items-center gap-2 text-slate-600 text-sm">
-                            <div className="w-2 h-2 bg-[#B8860B] rounded-full" />
+                  {/* Additional Amenities */}
+                  <div className="mb-12">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-6">สิ่งอำนวยความสะดวก</p>
+                    <div className="grid grid-cols-2 gap-y-4 gap-x-6">
+                      {viewingRoom.amenities.map(amenity => {
+                        let Icon = Check;
+                        if (amenity.includes('Wifi')) Icon = Wifi;
+                        if (amenity.includes('TV')) Icon = Tv;
+                        if (amenity.includes('อาหารเช้า')) Icon = Utensils;
+                        if (amenity.includes('อ่างอาบน้ำ')) Icon = Bath;
+                        if (amenity.includes('เครื่องปรับอากาศ')) Icon = Snowflake;
+                        if (amenity.includes('กาแฟ')) Icon = Coffee;
+                        
+                        return (
+                          <div key={amenity} className="flex items-center gap-3 text-sm text-slate-600 font-light">
+                            <Icon className="w-4 h-4 text-[#B8860B]" />
                             {amenity}
                           </div>
-                        ))}
-                      </div>
+                        );
+                      })}
                     </div>
+                  </div>
 
-                    <div className="md:w-72">
-                      <div className="bg-[#F8F9FA] p-6 rounded-3xl border border-slate-100 sticky top-4">
-                        <p className="text-sm text-slate-500 mb-1">ราคาเริ่มต้น</p>
-                        <p className="text-3xl font-bold text-[#2D5A27] mb-6">฿{viewingRoom.price.toLocaleString()} <span className="text-sm font-normal text-slate-400">/ คืน</span></p>
-                        
-                        <button 
-                          onClick={() => {
-                            setSelectedRoom(viewingRoom);
-                            setViewingRoom(null);
-                            document.getElementById('booking-form')?.scrollIntoView({ behavior: 'smooth' });
-                          }}
-                          data-room={viewingRoom.name}
-                          className="w-full py-4 rounded-2xl font-bold shadow-lg transition-all bg-green-600 text-white hover:bg-green-700"
-                        >
-                          จองห้องนี้เลย
-                        </button>
-                      </div>
+                  <div className="flex items-center justify-between gap-6 pt-10 border-t border-slate-100">
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">ราคาต่อคืน</p>
+                      <p className="text-3xl font-sans font-semibold text-[#064E3B]">฿{viewingRoom.price.toLocaleString()}</p>
                     </div>
+                    <button 
+                      onClick={() => {
+                        setSelectedRoom(viewingRoom);
+                        setViewingRoom(null);
+                        document.getElementById('booking-form')?.scrollIntoView({ behavior: 'smooth' });
+                      }}
+                      className="px-10 py-4 bg-[#064E3B] text-white rounded-2xl font-bold hover:bg-[#053F30] transition-all shadow-lg hover:shadow-xl"
+                    >
+                      จองตอนนี้
+                    </button>
                   </div>
                 </div>
               </div>
             </motion.div>
-          </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>
