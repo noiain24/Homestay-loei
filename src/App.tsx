@@ -846,7 +846,9 @@ export default function App() {
         setSearchResult(null);
         setSearchPhone('');
       } else {
-        throw new Error("ไม่สามารถส่งคำขอยกเลิกได้");
+        const text = await response.text();
+        console.error(`[${new Date().toISOString()}] n8n cancel error response (${response.status}):`, text);
+        throw new Error(`ไม่สามารถส่งคำขอยกเลิกได้ (Server Error ${response.status})`);
       }
     } catch (err: any) {
       console.error(`[${new Date().toISOString()}] Cancel Error:`, err);

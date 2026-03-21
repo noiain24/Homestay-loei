@@ -6,15 +6,15 @@
     },
     {
       "source": "/api/checkphone",
-      "destination": "https://n8n.srv1515012.hstgr.cloud/webhook/checkphone"
+      "destination": "/api/checkphone"
     },
     {
       "source": "/api/cancel",
-      "destination": "https://n8n.srv1515012.hstgr.cloud/webhook/cancle"
+      "destination": "/api/cancel"
     },
     {
       "source": "/api/gas-room-status",
-      "destination": "https://script.google.com/macros/s/AKfycbxkwUBjmR1W9e51sV9DqOcK7N-jLXLdWpZM4f8kQemwQxHgPoWTli2dwrYuezHSAhtp/exec"
+      "destination": "/api/gas-room-status"
     }
   ]
 }
