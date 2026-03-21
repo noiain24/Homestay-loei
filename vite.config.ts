@@ -23,7 +23,7 @@ export default defineConfig(({mode}) => {
           rewrite: (path) => path.replace(/^\/api\/booking/, ''),
         },
         '/api/checkphone': {
-          target: 'https://n8n.srv1515012.hstgr.cloud/webhook-test/checkphone',
+          target: 'https://n8n.srv1515012.hstgr.cloud/webhook/checkphone',
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/api\/checkphone/, ''),
         },
