@@ -29,6 +29,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
+        'User-Agent': 'Vercel-Proxy',
         'ngrok-skip-browser-warning': 'true',
       },
       body: JSON.stringify(req.body),
