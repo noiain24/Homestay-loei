@@ -6,7 +6,7 @@
     },
     {
       "source": "/api/checkphone",
-      "destination": "https://n8n.srv1515012.hstgr.cloud/webhook-test/checkphone"
+      "destination": "https://n8n.srv1515012.hstgr.cloud/webhook/checkphone"
     },
     {
       "source": "/api/cancel",
