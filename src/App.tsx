@@ -36,11 +36,12 @@ import {
   Utensils,
   Bath,
   Snowflake,
-  Coffee
+  Coffee,
+  MessageCircle
 } from 'lucide-react';
 
-const N8N_WEBHOOK_URL = `${window.location.origin}/api/booking`;
-const ROOM_STATUS_WEBHOOK_URL = `${window.location.origin}/api/gas-room-status`;
+const N8N_WEBHOOK_URL = "/api/booking";
+const ROOM_STATUS_WEBHOOK_URL = "/api/gas-room-status";
 
 // Fixed Spreadsheet ID
 const SHEET_ID = "18enn4tE_3yCxfYha-qha6_S7ifzZ2ulRX8bnPhQrweQ";
@@ -660,7 +661,7 @@ export default function App() {
 
     try {
       console.log(`[${new Date().toISOString()}] Sending booking data to n8n...`);
-      const response = await fetch(N8N_WEBHOOK_URL, {
+      const response = await fetch(`${window.location.origin}/api/booking`, {
         method: 'POST',
         body: formData,
       });
@@ -668,24 +669,14 @@ export default function App() {
       if (response.ok) {
         console.log(`[${new Date().toISOString()}] Booking Success!`);
         setIsSuccess(true);
-        setTimeout(() => {
-          setIsSuccess(false);
-          setSelectedRoom(null);
-          setCustomerName('');
-          setPhone('');
-          setEmail('');
-          setCheckIn(null);
-          setCheckOut(null);
-          setSlipFile(null);
-          setSlipPreview(null);
-        }, 5000);
+        // We don't reset immediately so user can click LINE button
       } else {
-        const errorText = await response.text();
-        throw new Error(errorText || "เกิดข้อผิดพลาดในการส่งข้อมูล");
+        const errorData = await response.json();
+        throw new Error(errorData.details || "เกิดข้อผิดพลาดในการส่งข้อมูล");
       }
     } catch (err: any) {
       console.error(`[${new Date().toISOString()}] Booking Error:`, err);
-      setError(err.message || "ไม่สามารถส่งข้อมูลได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง");
+      setError(err.message || "ระบบขัดข้องชั่วคราว กรุณาติดต่อทาง LINE @loeimisty");
     } finally {
       setIsSubmitting(false);
     }
@@ -703,8 +694,8 @@ export default function App() {
     setCancelMessage(null);
 
     try {
-      console.log(`[${new Date().toISOString()}] Checking phone: ${searchPhone}`);
-      const response = await fetch(`${window.location.origin}/api/checkphone`, {
+      console.log(`[${new Date().toISOString()}] Checking phone: ${searchPhone} via ${window.location.origin}/api/checkphone`);
+      const response = await fetch("/api/checkphone", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone: searchPhone }),
@@ -726,11 +717,12 @@ export default function App() {
           setSearchError("ไม่พบข้อมูลการจองสำหรับเบอร์โทรศัพท์นี้");
         }
       } else {
-        throw new Error("Failed to check phone");
+        const errorData = await response.json().catch(() => ({ details: "Failed to check phone" }));
+        throw new Error(errorData.details || errorData.error || "Failed to check phone");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(`[${new Date().toISOString()}] Check Phone Error:`, err);
-      setSearchError("เกิดข้อผิดพลาดในการค้นหา กรุณาลองใหม่อีกครั้ง");
+      setSearchError(err.message || "เกิดข้อผิดพลาดในการค้นหา กรุณาลองใหม่อีกครั้ง");
     } finally {
       setIsSearching(false);
     }
@@ -762,8 +754,8 @@ export default function App() {
     
     setIsCancelling(true);
     try {
-      console.log(`[${new Date().toISOString()}] Cancelling booking for: ${searchResult.bookingId || searchPhone}`);
-      const response = await fetch(`${window.location.origin}/api/cancel`, {
+      console.log(`[${new Date().toISOString()}] Cancelling booking for: ${searchResult.bookingId || searchPhone} via ${window.location.origin}/api/cancel`);
+      const response = await fetch("/api/cancel", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -1177,7 +1169,7 @@ export default function App() {
                     type="submit"
                     disabled={isSubmitting || isOverlap}
                     className={`w-full sm:w-auto px-16 py-5 rounded-full font-bold text-lg shadow-xl transition-all flex items-center justify-center gap-4 ${
-                      isOverlap 
+                      isOverlap || isSubmitting
                         ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
                         : 'bg-[#064E3B] text-white hover:bg-[#053F30] hover:shadow-2xl hover:-translate-y-1'
                     }`}
@@ -1189,7 +1181,10 @@ export default function App() {
                     ) : isOverlap ? (
                       'ไม่ว่างในช่วงวันที่เลือก'
                     ) : (
-                      'ยืนยันการจอง'
+                      <>
+                        <Check className="w-6 h-6" />
+                        ยืนยันการจองห้องพัก
+                      </>
                     )}
                   </button>
                 </div>
@@ -1408,14 +1403,27 @@ export default function App() {
               </div>
               <h3 className="text-3xl font-serif font-medium text-slate-800 mb-4">การจองสำเร็จ</h3>
               <p className="text-slate-500 font-light leading-relaxed mb-10">
-                เราได้รับข้อมูลการจองของคุณแล้ว เราจะตรวจสอบการชำระเงินและส่งอีเมลยืนยันให้คุณในไม่ช้า
+                เราได้รับข้อมูลการจองของคุณแล้ว เราจะตรวจสอบการชำระเงินและส่งข้อมูลยืนยันให้คุณในไม่ช้า
               </p>
-              <button 
-                onClick={() => setIsSuccess(false)}
-                className="w-full py-5 bg-[#064E3B] text-white rounded-2xl font-bold hover:bg-[#053F30] transition-all shadow-lg hover:shadow-xl"
-              >
-                ปิด
-              </button>
+              
+              <div className="space-y-4">
+                <a 
+                  href={`https://line.me/R/oaMessage/@loeimisty/?${encodeURIComponent(`ยืนยันการจอง: ${customerName} เบอร์ ${phone} ห้อง ${selectedRoom?.name}`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-5 bg-[#00B900] text-white rounded-2xl font-bold hover:bg-[#009900] transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-3"
+                >
+                  <MessageCircle className="w-6 h-6" />
+                  รับใบยืนยันทาง LINE
+                </a>
+
+                <button 
+                  onClick={() => setIsSuccess(false)}
+                  className="w-full py-5 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all"
+                >
+                  ปิดหน้าต่างนี้
+                </button>
+              </div>
             </motion.div>
           </div>
         )}

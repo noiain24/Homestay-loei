@@ -18,14 +18,13 @@ async function startServer() {
 
   // Proxy endpoint for n8n booking to avoid CORS issues
   app.post("/api/booking", upload.single('slip'), async (req: any, res) => {
-    const PROD_URL = "https://explanate-lyn-crawliest.ngrok-free.dev/webhook/booking_log";
-    const TEST_URL = "https://explanate-lyn-crawliest.ngrok-free.dev/webhook-test/booking_log";
+    const TEST_URL = "https://n8n.srv1515012.hstgr.cloud/webhook-test/booking_log";
+    const PROD_URL = "https://n8n.srv1515012.hstgr.cloud/webhook/booking_log";
     
-    console.log("Proxying booking request with FormData to n8n...");
+    console.log(`[${new Date().toISOString()}] Proxying booking request to n8n...`);
     
     const tryFetch = async (url: string) => {
       try {
-        console.log(`Attempting booking fetch to: ${url}`);
         const form = new FormData();
         Object.keys(req.body).forEach(key => form.append(key, req.body[key]));
         if (req.file) {
@@ -35,6 +34,10 @@ async function startServer() {
           });
         }
 
+        console.log(`[${new Date().toISOString()}] Attempting booking fetch to: ${url}`);
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 20000); // 20s timeout for file uploads
+
         const response = await fetch(url, {
           method: 'POST',
           headers: {
@@ -43,26 +46,25 @@ async function startServer() {
             ...form.getHeaders(),
           },
           body: form.getBuffer(),
+          signal: controller.signal
         });
+        clearTimeout(timeout);
         return response;
-      } catch (e) {
-        console.error(`Fetch error for ${url}:`, e);
+      } catch (e: any) {
+        console.error(`[${new Date().toISOString()}] Booking fetch error for ${url}:`, e.message);
         return null;
       }
     };
 
-    let response = await tryFetch(PROD_URL);
+    // Try TEST URL first as requested by user
+    let response = await tryFetch(TEST_URL);
     if (!response || response.status === 404) {
-      response = await tryFetch(TEST_URL);
+      console.log("TEST URL failed or 404, trying PROD URL...");
+      response = await tryFetch(PROD_URL);
     }
 
     if (response && response.ok) {
       const text = await response.text();
-      if (!text || text.trim() === "") {
-        console.warn("n8n booking returned an empty response");
-        return res.status(200).json({ status: "success", message: "Booking received by n8n (empty response)" });
-      }
-      
       try {
         const data = JSON.parse(text);
         res.status(200).json(data);
@@ -71,22 +73,33 @@ async function startServer() {
       }
     } else if (response) {
       const errorText = await response.text();
-      console.error("n8n booking error response:", errorText);
-      res.status(response.status).json({ error: "n8n Webhook Error", details: errorText });
+      console.error(`n8n booking error (${response.status}):`, errorText);
+      res.status(response.status).json({ 
+        error: "n8n Webhook Error", 
+        status: response.status,
+        details: errorText 
+      });
     } else {
-      res.status(500).json({ error: "Failed to connect to n8n booking webhook" });
+      res.status(503).json({ 
+        error: "Service Unavailable", 
+        details: "ไม่สามารถเชื่อมต่อกับระบบ n8n ได้ กรุณาติดต่อทาง LINE" 
+      });
     }
   });
 
   // Proxy endpoint for checkphone
   app.post("/api/checkphone", async (req, res) => {
-    const PROD_URL = "https://explanate-lyn-crawliest.ngrok-free.dev/webhook/checkphone";
-    const TEST_URL = "https://explanate-lyn-crawliest.ngrok-free.dev/webhook-test/checkphone";
+    const TEST_URL = "https://n8n.srv1515012.hstgr.cloud/webhook-test/check%20phone";
+    const PROD_URL = "https://n8n.srv1515012.hstgr.cloud/webhook/check%20phone";
     
-    console.log("Proxying checkphone request to n8n...");
+    console.log(`[${new Date().toISOString()}] Proxying checkphone request to n8n...`);
     
     const tryFetch = async (url: string) => {
       try {
+        console.log(`[${new Date().toISOString()}] Attempting checkphone fetch to: ${url}`);
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
         const response = await fetch(url, {
           method: 'POST',
           headers: {
@@ -94,25 +107,23 @@ async function startServer() {
             'ngrok-skip-browser-warning': 'true',
           },
           body: JSON.stringify(req.body),
+          signal: controller.signal
         });
+        clearTimeout(timeout);
         return response;
-      } catch (e) {
+      } catch (e: any) {
+        console.error(`[${new Date().toISOString()}] Checkphone fetch error for ${url}:`, e.message);
         return null;
       }
     };
 
-    let response = await tryFetch(PROD_URL);
+    let response = await tryFetch(TEST_URL);
     if (!response || response.status === 404) {
-      response = await tryFetch(TEST_URL);
+      response = await tryFetch(PROD_URL);
     }
 
     if (response && response.ok) {
       const text = await response.text();
-      if (!text || text.trim() === "") {
-        console.warn("n8n checkphone returned an empty response");
-        return res.status(200).json({ error: "No data found", details: "Empty response from n8n" });
-      }
-      
       try {
         const data = JSON.parse(text);
         res.status(200).json(data);
@@ -121,22 +132,32 @@ async function startServer() {
       }
     } else if (response) {
       const errorText = await response.text();
-      console.error("n8n checkphone error response:", errorText);
-      res.status(response.status).send(errorText);
+      res.status(response.status).json({ 
+        error: "n8n CheckPhone Error", 
+        status: response.status,
+        details: errorText 
+      });
     } else {
-      res.status(500).json({ error: "Failed to connect to n8n checkphone webhook" });
+      res.status(503).json({ 
+        error: "Service Unavailable", 
+        details: "ระบบตรวจสอบขัดข้อง กรุณาติดต่อทาง LINE" 
+      });
     }
   });
 
   // Proxy endpoint for cancel
   app.post("/api/cancel", async (req, res) => {
-    const PROD_URL = "https://explanate-lyn-crawliest.ngrok-free.dev/webhook/cancle";
-    const TEST_URL = "https://explanate-lyn-crawliest.ngrok-free.dev/webhook-test/cancle";
+    const TEST_URL = "https://n8n.srv1515012.hstgr.cloud/webhook-test/cancle";
+    const PROD_URL = "https://n8n.srv1515012.hstgr.cloud/webhook/cancle";
     
-    console.log("Proxying cancel request to n8n...");
+    console.log(`[${new Date().toISOString()}] Proxying cancel request to n8n...`);
     
     const tryFetch = async (url: string) => {
       try {
+        console.log(`[${new Date().toISOString()}] Attempting cancel fetch to: ${url}`);
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
         const response = await fetch(url, {
           method: 'POST',
           headers: {
@@ -144,25 +165,23 @@ async function startServer() {
             'ngrok-skip-browser-warning': 'true',
           },
           body: JSON.stringify(req.body),
+          signal: controller.signal
         });
+        clearTimeout(timeout);
         return response;
-      } catch (e) {
+      } catch (e: any) {
+        console.error(`[${new Date().toISOString()}] Cancel fetch error for ${url}:`, e.message);
         return null;
       }
     };
 
-    let response = await tryFetch(PROD_URL);
+    let response = await tryFetch(TEST_URL);
     if (!response || response.status === 404) {
-      response = await tryFetch(TEST_URL);
+      response = await tryFetch(PROD_URL);
     }
 
     if (response && response.ok) {
       const text = await response.text();
-      if (!text || text.trim() === "") {
-        console.warn("n8n cancel returned an empty response");
-        return res.status(200).json({ status: "success", message: "Cancel request received by n8n" });
-      }
-      
       try {
         const data = JSON.parse(text);
         res.status(200).json(data);
@@ -171,10 +190,16 @@ async function startServer() {
       }
     } else if (response) {
       const errorText = await response.text();
-      console.error("n8n cancel error response:", errorText);
-      res.status(response.status).send(errorText);
+      res.status(response.status).json({ 
+        error: "n8n Cancel Error", 
+        status: response.status,
+        details: errorText 
+      });
     } else {
-      res.status(500).json({ error: "Failed to connect to n8n cancel webhook" });
+      res.status(503).json({ 
+        error: "Service Unavailable", 
+        details: "ระบบยกเลิกขัดข้อง กรุณาติดต่อทาง LINE" 
+      });
     }
   });
 
