@@ -1487,16 +1487,6 @@ export default function App() {
               </p>
               
               <div className="space-y-4">
-                <a 
-                  href={`https://line.me/R/oaMessage/@loeimisty/?${encodeURIComponent(`ยืนยันการจอง: ${customerName} เบอร์ ${phone} ห้อง ${selectedRoom?.name}`)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full py-5 bg-[#00B900] text-white rounded-2xl font-bold hover:bg-[#009900] transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-3"
-                >
-                  <MessageCircle className="w-6 h-6" />
-                  รับใบยืนยันทาง LINE
-                </a>
-
                 <button 
                   onClick={() => setIsSuccess(false)}
                   className="w-full py-5 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all"
