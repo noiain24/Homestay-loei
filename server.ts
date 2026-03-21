@@ -182,7 +182,7 @@ async function startServer() {
   app.get("/api/gas-room-status", async (req, res) => {
     const GAS_URL = "https://script.google.com/macros/s/AKfycbxkwUBjmR1W9e51sV9DqOcK7N-jLXLdWpZM4f8kQemwQxHgPoWTli2dwrYuezHSAhtp/exec";
     
-    console.log("Proxying room status request to GAS...");
+    console.log(`[${new Date().toISOString()}] Proxying room status request to GAS: ${GAS_URL}`);
     
     try {
       const response = await fetch(GAS_URL, {
@@ -190,23 +190,29 @@ async function startServer() {
         headers: { 
           'Accept': 'application/json',
         },
+        redirect: 'follow'
       });
+      
+      console.log(`[${new Date().toISOString()}] GAS response status: ${response.status}`);
       
       if (response.ok) {
         const text = await response.text();
+        console.log(`[${new Date().toISOString()}] GAS response length: ${text.length}`);
         try {
           const data = JSON.parse(text);
           res.status(200).json(data);
         } catch (e) {
+          console.warn(`[${new Date().toISOString()}] GAS response is not JSON, sending as text`);
           res.status(200).send(text);
         }
       } else {
         const errorText = await response.text();
+        console.error(`[${new Date().toISOString()}] GAS error response: ${errorText}`);
         res.status(response.status).send(errorText);
       }
     } catch (e) {
-      console.error("GAS fetch error:", e);
-      res.status(500).json({ error: "Failed to connect to GAS room status" });
+      console.error(`[${new Date().toISOString()}] GAS fetch error:`, e);
+      res.status(500).json({ error: "Failed to connect to GAS room status", details: e instanceof Error ? e.message : String(e) });
     }
   });
 

@@ -39,8 +39,8 @@ import {
   Coffee
 } from 'lucide-react';
 
-const N8N_WEBHOOK_URL = "/api/booking";
-const ROOM_STATUS_WEBHOOK_URL = "/api/gas-room-status";
+const N8N_WEBHOOK_URL = `${window.location.origin}/api/booking`;
+const ROOM_STATUS_WEBHOOK_URL = `${window.location.origin}/api/gas-room-status`;
 
 // Fixed Spreadsheet ID
 const SHEET_ID = "18enn4tE_3yCxfYha-qha6_S7ifzZ2ulRX8bnPhQrweQ";
@@ -241,6 +241,7 @@ export default function App() {
     rowNumber: number;
     checkIn?: string | number;
     checkOut?: string | number;
+    bookingId?: string;
   } | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
@@ -354,16 +355,20 @@ export default function App() {
   // Fetch Room Statuses from GAS (Google Apps Script)
   const updateRoomButtons = async () => {
     try {
-      console.log(`Fetching room status from GAS via proxy: ${ROOM_STATUS_WEBHOOK_URL}`);
+      console.log(`[${new Date().toISOString()}] Attempting to fetch room status from: ${ROOM_STATUS_WEBHOOK_URL}`);
       const response = await fetch(ROOM_STATUS_WEBHOOK_URL);
+      
       if (!response.ok) {
-        console.warn(`GAS room status fetch failed with status: ${response.status}`);
+        const errText = await response.text();
+        console.warn(`[${new Date().toISOString()}] GAS room status fetch failed with status: ${response.status}. Details: ${errText}`);
         return;
       }
       
       const text = await response.text();
+      console.log(`[${new Date().toISOString()}] Received GAS room status response, length: ${text.length}`);
+      
       if (!text || text.trim() === "") {
-        console.warn("GAS room status returned an empty response");
+        console.warn(`[${new Date().toISOString()}] GAS room status returned an empty response`);
         return;
       }
 
@@ -371,7 +376,7 @@ export default function App() {
       try {
         data = JSON.parse(text);
       } catch (e) {
-        console.error("Expected JSON from GAS but received:", text.substring(0, 100));
+        console.error(`[${new Date().toISOString()}] Expected JSON from GAS but received:`, text.substring(0, 100));
         return;
       }
       
@@ -401,7 +406,7 @@ export default function App() {
           return checkOutDate && checkOutDate >= today;
         });
 
-        console.log('Active Bookings from GAS:', activeBookings.length);
+        console.log(`[${new Date().toISOString()}] Active Bookings from GAS:`, activeBookings.length);
         setGasBookings(activeBookings);
 
         // Update current status map for UI hints (optional, but requested to keep it clean)
@@ -420,7 +425,7 @@ export default function App() {
         setRoomStatuses(statusMap);
       }
     } catch (error) {
-      console.error('Error in updateRoomButtons:', error);
+      console.error(`[${new Date().toISOString()}] Error in updateRoomButtons:`, error);
     }
   };
 
@@ -623,6 +628,7 @@ export default function App() {
     return diffDays > 0 ? diffDays * selectedRoom.price : selectedRoom.price;
   };
 
+  // 1. ฟังก์ชันส่งข้อมูลการจอง (Booking)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -632,55 +638,42 @@ export default function App() {
       return;
     }
 
-    // Simple email validation
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError("กรุณากรอกอีเมลให้ถูกต้อง");
-      return;
-    }
-
-    // Simple phone validation (Thai format)
-    if (!/^[0-9]{9,10}$/.test(phone)) {
-      setError("กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง (9-10 หลัก)");
-      return;
-    }
-
     setIsSubmitting(true);
 
     const formData = new FormData();
-    formData.append('bookingId', `BK-${Math.floor(100000 + Math.random() * 900000)}`);
-    formData.append('lineId', urlUserId); // For Column M: UserID LINE
-    formData.append('facebookId', facebookId); // For Column N: facebookId
+    const bookingId = `BK-${Math.floor(100000 + Math.random() * 900000)}`;
+    formData.append('bookingId', bookingId);
     formData.append('customerName', customerName);
     formData.append('phone', phone);
     formData.append('email', email);
-    formData.append('socialId', socialId);
     formData.append('roomName', selectedRoom.name);
     formData.append('checkIn', format(checkIn, 'yyyy-MM-dd'));
     formData.append('checkOut', format(checkOut, 'yyyy-MM-dd'));
     formData.append('totalPrice', calculateTotalPrice().toString());
+    formData.append('lineId', urlUserId);
+    formData.append('facebookId', facebookId);
+    formData.append('socialId', socialId);
     
-    // Append the file directly
     if (slipFile) {
       formData.append('slip', slipFile, 'slip.jpg');
     }
 
     try {
+      console.log(`[${new Date().toISOString()}] Sending booking data to n8n...`);
       const response = await fetch(N8N_WEBHOOK_URL, {
         method: 'POST',
-        // Important: Do not set Content-Type header for FormData
         body: formData,
       });
 
       if (response.ok) {
+        console.log(`[${new Date().toISOString()}] Booking Success!`);
         setIsSuccess(true);
-        // Reset form after success
         setTimeout(() => {
           setIsSuccess(false);
           setSelectedRoom(null);
           setCustomerName('');
           setPhone('');
           setEmail('');
-          setSocialId('');
           setCheckIn(null);
           setCheckOut(null);
           setSlipFile(null);
@@ -688,29 +681,17 @@ export default function App() {
         }, 5000);
       } else {
         const errorText = await response.text();
-        let errorMessage = "เกิดข้อผิดพลาดในการส่งข้อมูล";
-        try {
-          const errorData = JSON.parse(errorText);
-          errorMessage = errorData.details || errorMessage;
-        } catch (e) {
-          errorMessage = errorText.substring(0, 100) || errorMessage;
-        }
-        
-        // Specific check for n8n POST error
-        if (errorMessage.includes("not registered for POST requests")) {
-          errorMessage = "⚠️ ตั้งค่า n8n ไม่ถูกต้อง: กรุณาเปลี่ยน HTTP Method ในโหนด Webhook ของ n8n จาก GET เป็น POST และกด Activate เวิร์กโฟลว์";
-        }
-        
-        throw new Error(errorMessage);
+        throw new Error(errorText || "เกิดข้อผิดพลาดในการส่งข้อมูล");
       }
     } catch (err: any) {
-      console.error(err);
+      console.error(`[${new Date().toISOString()}] Booking Error:`, err);
       setError(err.message || "ไม่สามารถส่งข้อมูลได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง");
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // 2. ฟังก์ชันตรวจสอบเบอร์โทรศัพท์ (Check Phone)
   const handleSearchBooking = async () => {
     if (!searchPhone) {
       setSearchError("กรุณากรอกเบอร์โทรศัพท์");
@@ -722,7 +703,8 @@ export default function App() {
     setCancelMessage(null);
 
     try {
-      const response = await fetch("/api/checkphone", {
+      console.log(`[${new Date().toISOString()}] Checking phone: ${searchPhone}`);
+      const response = await fetch(`${window.location.origin}/api/checkphone`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone: searchPhone }),
@@ -730,24 +712,25 @@ export default function App() {
 
       if (response.ok) {
         const data = await response.json();
-        // Expected JSON: { customerName, roomName, row_number, checkIn, checkOut, status }
+        console.log(`[${new Date().toISOString()}] Check Phone Result:`, data);
         if (data && data.customerName) {
           setSearchResult({
             customerName: data.customerName,
             roomName: data.roomName,
             rowNumber: data.row_number,
             checkIn: data.checkIn,
-            checkOut: data.checkOut
+            checkOut: data.checkOut,
+            bookingId: data.bookingId || data.row_number // Use row number as fallback ID
           });
         } else {
           setSearchError("ไม่พบข้อมูลการจองสำหรับเบอร์โทรศัพท์นี้");
         }
       } else {
-        setSearchError("เกิดข้อผิดพลาดในการค้นหา กรุณาลองใหม่อีกครั้ง");
+        throw new Error("Failed to check phone");
       }
     } catch (err) {
-      console.error("Search error:", err);
-      setSearchError("ไม่สามารถเชื่อมต่อกับระบบได้");
+      console.error(`[${new Date().toISOString()}] Check Phone Error:`, err);
+      setSearchError("เกิดข้อผิดพลาดในการค้นหา กรุณาลองใหม่อีกครั้ง");
     } finally {
       setIsSearching(false);
     }
@@ -773,29 +756,34 @@ export default function App() {
     return format(date, 'dd/MM/yyyy');
   };
 
+  // 3. ฟังก์ชันยกเลิกการจอง (Cancel)
   const handleCancelBooking = async () => {
     if (!searchResult) return;
     
     setIsCancelling(true);
     try {
-      const response = await fetch("/api/cancel", {
+      console.log(`[${new Date().toISOString()}] Cancelling booking for: ${searchResult.bookingId || searchPhone}`);
+      const response = await fetch(`${window.location.origin}/api/cancel`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
-          row: searchResult.rowNumber, 
+          bookingId: searchResult.bookingId,
+          phone: searchPhone,
+          row: searchResult.rowNumber,
           action: "ยกเลิก" 
         }),
       });
 
       if (response.ok) {
+        console.log(`[${new Date().toISOString()}] Cancel Request Sent!`);
         setCancelMessage("ส่งเรื่องยกเลิกเรียบร้อย ระบบจะแจ้งเตือนคุณผ่านแชทใน 1 นาที");
         setSearchResult(null);
         setSearchPhone('');
       } else {
-        setSearchError("เกิดข้อผิดพลาดในการยกเลิก กรุณาลองใหม่อีกครั้ง");
+        throw new Error("Failed to cancel");
       }
     } catch (err) {
-      console.error("Cancel error:", err);
+      console.error(`[${new Date().toISOString()}] Cancel Error:`, err);
       setSearchError("ไม่สามารถเชื่อมต่อกับระบบได้");
     } finally {
       setIsCancelling(false);
