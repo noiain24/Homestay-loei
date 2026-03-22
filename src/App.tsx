@@ -196,8 +196,62 @@ const getDirectLink = (url: string | undefined) => {
   return trimmedUrl;
 };
 
+interface SiteConfig {
+  homestayName: string;
+  homestaySuffix: string;
+  heroSloganTop: string;
+  heroDescription: string;
+  contactPhone: string;
+  contactEmail: string;
+  contactLineId: string;
+  contactFacebookUrl: string;
+  contactAddress: string;
+  bankName: string;
+  bankAccountNo: string;
+  bankAccountName: string;
+  promptPayId: string;
+  themePreset: string;
+  fontStyle: string;
+}
+
+const DEFAULT_CONFIG: SiteConfig = {
+  homestayName: 'ไฮตาก',
+  homestaySuffix: 'HomeStay',
+  heroSloganTop: 'สัมผัสศิลปะแห่งการใช้ชีวิต',
+  heroDescription: 'สัมผัสความหรูหราที่เรียบง่ายท่ามกลางทะเลหมอกและขุนเขา',
+  contactPhone: '824931531',
+  contactEmail: 'koporikkung@gmail.com',
+  contactLineId: 'koporik',
+  contactFacebookUrl: 'https://www.facebook.com/search/top?q=%E0%B9%82%E0%B8%AE%E0%B8%A1%E0%B9%81%E0%B8%84%E0%B8%A1%E0%B8%9B%E0%B9%8C%20%E0%B9%82%E0%B8%AE%E0%B8%A1%E0%B8%AA%E0%B9%80%E0%B8%95%E0%B8%A2%E0%B9%8C%E0%B9%84%E0%B8%AE%E0%B8%95%E0%B8%B2%E0%B8%81',
+  contactAddress: 'บ.ไฮตาก อ.ภูเรือ, จ.เลย, ประเทศไทย',
+  bankName: 'กสิกรไทย',
+  bankAccountNo: '713690716',
+  bankAccountName: 'อิสยาห์ ดีตรุษ',
+  promptPayId: '824931531',
+  themePreset: 'Forest',
+  fontStyle: 'Elegant',
+};
+
+const THEMES: { [key: string]: { primary: string; accent: string; bg: string } } = {
+  Forest: { primary: "#064E3B", accent: "#B8860B", bg: "#FAFAFA" },
+  Mist: { primary: "#475569", accent: "#94A3B8", bg: "#F1F5F9" },
+  Wood: { primary: "#451A03", accent: "#92400E", bg: "#FFFBEB" },
+  Sunrise: { primary: "#7C2D12", accent: "#EA580C", bg: "#FFF7ED" },
+  Earth: { primary: "#365314", accent: "#65A30D", bg: "#F7FEE7" },
+};
+
+const FONTS: { [key: string]: { serif: string; sans: string } } = {
+  Elegant: { serif: '"Playfair Display", serif', sans: '"Inter", sans-serif' },
+  Minimal: { serif: '"Inter", sans-serif', sans: '"Inter", sans-serif' },
+  Classic: { serif: '"Libre Baskerville", serif', sans: '"Libre Baskerville", serif' },
+  Modern: { serif: '"Outfit", sans-serif', sans: '"Outfit", sans-serif' },
+  Cozy: { serif: '"Quicksand", sans-serif', sans: '"Quicksand", sans-serif' },
+};
+
 export default function App() {
+  const [searchParams] = useSearchParams();
   const [rooms, setRooms] = useState<Room[]>(INITIAL_ROOMS);
+  const [siteConfig, setSiteConfig] = useState<SiteConfig>(DEFAULT_CONFIG);
   const [isRoomsLoading, setIsRoomsLoading] = useState(true);
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [viewingRoom, setViewingRoom] = useState<Room | null>(null);
@@ -252,7 +306,18 @@ export default function App() {
   const [searchError, setSearchError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
 
-  const [searchParams] = useSearchParams();
+  // Apply Theme and Font to CSS Variables
+  useEffect(() => {
+    const root = document.documentElement;
+    const theme = THEMES[siteConfig.themePreset] || THEMES.Forest;
+    const font = FONTS[siteConfig.fontStyle] || FONTS.Elegant;
+
+    root.style.setProperty('--primary', theme.primary);
+    root.style.setProperty('--accent', theme.accent);
+    root.style.setProperty('--bg-site', theme.bg);
+    root.style.setProperty('--font-serif', font.serif);
+    root.style.setProperty('--font-sans', font.sans);
+  }, [siteConfig.themePreset, siteConfig.fontStyle]);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -272,6 +337,39 @@ export default function App() {
     }
   }, [searchParams]);
 
+  // Fetch Site Config from Settings tab
+  useEffect(() => {
+    const settingsUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Settings`;
+    
+    Papa.parse(settingsUrl, {
+      download: true,
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        if (results.data && results.data.length > 0) {
+          const row = results.data[0] as any;
+          setSiteConfig({
+            homestayName: getValue(row, 'Homestay_Name', 'name') || DEFAULT_CONFIG.homestayName,
+            homestaySuffix: getValue(row, 'Homestay_Suffix', 'suffix') || DEFAULT_CONFIG.homestaySuffix,
+            heroSloganTop: getValue(row, 'Hero_Slogan_Top', 'slogan_top') || DEFAULT_CONFIG.heroSloganTop,
+            heroDescription: getValue(row, 'Hero_Description', 'description') || DEFAULT_CONFIG.heroDescription,
+            contactPhone: getValue(row, 'Contact_Phone', 'phone') || DEFAULT_CONFIG.contactPhone,
+            contactEmail: getValue(row, 'Contact_Email', 'email') || DEFAULT_CONFIG.contactEmail,
+            contactLineId: getValue(row, 'Contact_Line_ID', 'line') || DEFAULT_CONFIG.contactLineId,
+            contactFacebookUrl: getValue(row, 'Contact_Facebook_URL', 'facebook') || DEFAULT_CONFIG.contactFacebookUrl,
+            contactAddress: getValue(row, 'Contact_Address', 'address') || DEFAULT_CONFIG.contactAddress,
+            bankName: getValue(row, 'Bank_Name', 'bank') || DEFAULT_CONFIG.bankName,
+            bankAccountNo: getValue(row, 'Bank_Account_No', 'account_no') || DEFAULT_CONFIG.bankAccountNo,
+            bankAccountName: getValue(row, 'Bank_Account_Name', 'account_name') || DEFAULT_CONFIG.bankAccountName,
+            promptPayId: getValue(row, 'PromptPay_ID', 'promptpay') || DEFAULT_CONFIG.promptPayId,
+            themePreset: getValue(row, 'Theme_Preset', 'theme') || DEFAULT_CONFIG.themePreset,
+            fontStyle: getValue(row, 'Font_Style', 'font') || DEFAULT_CONFIG.fontStyle,
+          });
+        }
+      }
+    });
+  }, []);
+
   // Fetch rooms from Google Sheets
   useEffect(() => {
     const sheetUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`;
@@ -286,9 +384,20 @@ export default function App() {
       complete: (results) => {
         console.log('Raw Sheet Data:', results.data);
         
-        const parsedRooms = results.data.map((row: any) => {
-          const roomId = getValue(row, 'Room_ID', 'id', 'Room ID');
-          if (!roomId) return null;
+        // Look for the "Config" column to set the homestay name (Legacy support)
+        const firstRowWithConfig = results.data.find((row: any) => getValue(row, 'Config', 'config'));
+        if (firstRowWithConfig) {
+          const dynamicName = getValue(firstRowWithConfig, 'Config', 'config');
+          if (dynamicName && !siteConfig.homestayName) {
+            setSiteConfig(prev => ({ ...prev, homestayName: dynamicName }));
+          }
+        }
+
+        const parsedRooms = results.data
+          .filter((row: any) => getValue(row, 'Room_ID', 'id') !== 'CONFIG') // Skip config row if it exists
+          .map((row: any) => {
+            const roomId = getValue(row, 'Room_ID', 'id', 'Room ID');
+            if (!roomId) return null;
 
           // Clean price: remove "บาท/คืน", commas, and spaces
           const rawPrice = getValue(row, 'Price_Per_Night', 'price', 'Price', 'Price Per Night');
@@ -863,7 +972,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] text-slate-800 font-sans selection:bg-[#B8860B]/30">
+    <div className="min-h-screen bg-site-bg text-slate-800 font-sans selection:bg-accent/30">
       {/* n8n Configuration Warning */}
       {n8nError && (
         <div className="fixed bottom-4 right-4 z-50 max-w-md bg-red-50 border-l-4 border-red-500 p-4 shadow-lg rounded-r-lg animate-bounce">
@@ -886,23 +995,28 @@ export default function App() {
       )}
 
       {/* Navbar */}
-      <nav className="fixed top-0 w-full z-50 bg-white/70 backdrop-blur-xl border-b border-[#B8860B]/10">
+      <nav className="fixed top-0 w-full z-50 bg-white/70 backdrop-blur-xl border-b border-accent/10">
         <div className="max-w-7xl mx-auto px-6 lg:px-12">
           <div className="flex justify-between items-center h-20">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-[#064E3B] rounded-full flex items-center justify-center shadow-lg shadow-[#064E3B]/20">
+              <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center shadow-lg shadow-primary/20">
                 <Wind className="text-white w-5 h-5" />
               </div>
-              <span className="text-xl font-serif font-semibold tracking-tight text-[#064E3B]">
-                Loei Misty
-              </span>
+              <div className="flex flex-col leading-none">
+                <span className="text-lg font-serif font-semibold tracking-tight text-primary">
+                  {siteConfig.homestayName}
+                </span>
+                <span className="text-[10px] italic font-normal text-accent -mt-0.5">
+                  {siteConfig.homestaySuffix}
+                </span>
+              </div>
             </div>
             <div className="hidden md:flex items-center gap-8">
-              <button onClick={() => document.getElementById('rooms')?.scrollIntoView({ behavior: 'smooth' })} className="text-sm font-medium text-slate-600 hover:text-[#064E3B] transition-colors">ที่พัก</button>
-              <button onClick={() => document.getElementById('manage-booking')?.scrollIntoView({ behavior: 'smooth' })} className="text-sm font-medium text-slate-600 hover:text-[#064E3B] transition-colors">การจองของฉัน</button>
+              <button onClick={() => document.getElementById('rooms')?.scrollIntoView({ behavior: 'smooth' })} className="text-sm font-medium text-slate-600 hover:text-primary transition-colors">ที่พัก</button>
+              <button onClick={() => document.getElementById('manage-booking')?.scrollIntoView({ behavior: 'smooth' })} className="text-sm font-medium text-slate-600 hover:text-primary transition-colors">การจองของฉัน</button>
               <button 
                 onClick={() => document.getElementById('booking-form')?.scrollIntoView({ behavior: 'smooth' })}
-                className="bg-[#064E3B] text-white px-6 py-2.5 rounded-full text-sm font-semibold hover:bg-[#053F30] transition-all shadow-md shadow-[#064E3B]/10"
+                className="bg-primary text-white px-6 py-2.5 rounded-full text-sm font-semibold hover:opacity-90 transition-all shadow-md shadow-primary/10"
               >
                 จองตอนนี้
               </button>
@@ -913,10 +1027,10 @@ export default function App() {
 
       <main className="pt-20">
         {/* Hero Section */}
-        <section className="relative min-h-[70vh] flex items-center justify-center bg-[#F5F5DC]/30 overflow-hidden">
+        <section className="relative min-h-[70vh] flex items-center justify-center bg-accent/5 overflow-hidden">
           <div className="absolute inset-0 z-0">
-            <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-[#064E3B]/5 rounded-full blur-[120px]" />
-            <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-[#B8860B]/5 rounded-full blur-[120px]" />
+            <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px]" />
+            <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-accent/5 rounded-full blur-[120px]" />
           </div>
 
           <motion.div 
@@ -929,28 +1043,27 @@ export default function App() {
               initial={{ opacity: 0, letterSpacing: "0.2em" }}
               animate={{ opacity: 1, letterSpacing: "0.4em" }}
               transition={{ delay: 0.2, duration: 1 }}
-              className="block text-[#B8860B] font-sans text-xs font-bold uppercase mb-6"
+              className="block text-accent font-sans text-xs font-bold uppercase mb-6"
             >
-              สัมผัสศิลปะแห่งการใช้ชีวิต
+              {siteConfig.heroSloganTop}
             </motion.span>
-            <h1 className="text-5xl sm:text-7xl md:text-8xl font-serif font-medium text-[#064E3B] leading-[1.1] mb-8">
-              Loei Misty <br />
-              <span className="italic font-normal text-[#B8860B]">Homestay</span>
+            <h1 className="text-5xl sm:text-7xl md:text-8xl font-serif font-medium text-primary leading-[1.1] mb-8">
+              {siteConfig.homestayName} <br />
+              <span className="italic font-normal text-accent">{siteConfig.homestaySuffix}</span>
             </h1>
             <p className="text-lg sm:text-xl text-slate-600 mb-12 max-w-2xl mx-auto font-light leading-relaxed">
-              สัมผัสความหรูหราที่เรียบง่ายท่ามกลางทะเลหมอกและขุนเขา 
-              ที่พักระดับพรีเมียมที่ออกแบบมาเพื่อการพักผ่อนอย่างแท้จริง
+              {siteConfig.heroDescription}
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
               <button 
                 onClick={() => document.getElementById('rooms')?.scrollIntoView({ behavior: 'smooth' })}
-                className="group relative inline-flex items-center gap-3 bg-[#064E3B] text-white px-10 py-5 rounded-full text-lg font-semibold hover:bg-[#053F30] transition-all shadow-xl shadow-[#064E3B]/20 border border-[#B8860B]/20"
+                className="group relative inline-flex items-center gap-3 bg-primary text-white px-10 py-5 rounded-full text-lg font-semibold hover:opacity-90 transition-all shadow-xl shadow-primary/20 border border-accent/20"
               >
                 จองที่พักของคุณ <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </button>
               <button 
                 onClick={() => document.getElementById('manage-booking')?.scrollIntoView({ behavior: 'smooth' })}
-                className="text-slate-600 font-medium hover:text-[#064E3B] transition-colors border-b border-slate-300 hover:border-[#064E3B] pb-1"
+                className="text-slate-600 font-medium hover:text-primary transition-colors border-b border-slate-300 hover:border-primary pb-1"
               >
                 จัดการการจอง
               </button>
@@ -964,14 +1077,14 @@ export default function App() {
             <motion.span 
               initial={{ opacity: 0 }}
               whileInView={{ opacity: 1 }}
-              className="text-[#B8860B] font-sans font-bold tracking-[0.3em] uppercase text-xs mb-4 block"
+              className="text-accent font-sans font-bold tracking-[0.3em] uppercase text-xs mb-4 block"
             >
               คอลเลกชันที่คัดสรรมาเพื่อคุณ
             </motion.span>
             <motion.h2 
               initial={{ opacity: 0, y: 10 }}
               whileInView={{ opacity: 1, y: 0 }}
-              className="text-4xl sm:text-5xl font-serif font-medium text-[#064E3B]"
+              className="text-4xl sm:text-5xl font-serif font-medium text-primary"
             >
               ที่พักของเรา
             </motion.h2>
@@ -990,7 +1103,7 @@ export default function App() {
                   whileInView={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1, duration: 0.8 }}
                   viewport={{ once: true }}
-                  className={`group relative bg-white rounded-[2rem] overflow-hidden shadow-sm hover:shadow-2xl hover:shadow-[#B8860B]/5 transition-all duration-500 border border-black/5 ${selectedRoom?.id === room.id ? 'ring-2 ring-[#B8860B] ring-offset-4' : 'hover:border-[#B8860B]/30'}`}
+                  className={`group relative bg-white rounded-[2rem] overflow-hidden shadow-sm hover:shadow-2xl hover:shadow-accent/5 transition-all duration-500 border border-black/5 ${selectedRoom?.id === room.id ? 'ring-2 ring-accent ring-offset-4' : 'hover:border-accent/30'}`}
                 >
                   <div className="relative h-72 overflow-hidden">
                     <img 
@@ -999,7 +1112,7 @@ export default function App() {
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000"
                       referrerPolicy="no-referrer"
                     />
-                    <div className="absolute top-6 right-6 bg-white/90 backdrop-blur-md px-4 py-2 rounded-full text-sm font-bold text-[#064E3B] shadow-sm border border-[#B8860B]/20 font-sans">
+                    <div className="absolute top-6 right-6 bg-white/90 backdrop-blur-md px-4 py-2 rounded-full text-sm font-bold text-primary shadow-sm border border-accent/20 font-sans">
                       ฿{room.price.toLocaleString()}
                     </div>
                   </div>
@@ -1007,7 +1120,7 @@ export default function App() {
                     <div className="flex justify-between items-start mb-4">
                       <h3 className="text-2xl font-serif font-medium text-slate-800">{room.name}</h3>
                       {room.capacity && (
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-[#B8860B] bg-[#B8860B]/5 px-2 py-1 rounded">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-accent bg-accent/5 px-2 py-1 rounded">
                           {room.capacity}
                         </span>
                       )}
@@ -1028,7 +1141,7 @@ export default function App() {
                           setViewingRoom(room);
                           setActiveImageIndex(0);
                         }}
-                        className="py-3.5 rounded-xl font-semibold text-sm text-[#064E3B] bg-slate-50 hover:bg-slate-100 transition-all text-center"
+                        className="py-3.5 rounded-xl font-semibold text-sm text-primary bg-slate-50 hover:bg-slate-100 transition-all text-center"
                       >
                         รายละเอียด
                       </button>
@@ -1039,8 +1152,8 @@ export default function App() {
                         }}
                         className={`py-3.5 rounded-xl font-semibold text-sm transition-all shadow-md ${
                           selectedRoom?.id === room.id 
-                            ? 'bg-[#B8860B] text-white' 
-                            : 'bg-[#064E3B] text-white hover:bg-[#053F30]'
+                            ? 'bg-accent text-white' 
+                            : 'bg-primary text-white hover:opacity-90'
                         }`}
                       >
                         {selectedRoom?.id === room.id ? 'เลือกแล้ว' : 'จองตอนนี้'}
@@ -1054,17 +1167,17 @@ export default function App() {
         </section>
 
         {/* Booking Form Section */}
-        <section id="booking-form" className="bg-[#064E3B] py-32 relative overflow-hidden">
+        <section id="booking-form" className="bg-primary py-32 relative overflow-hidden">
           {/* Decorative elements */}
           <div className="absolute top-0 left-0 w-96 h-96 bg-white/5 rounded-full -translate-x-1/2 -translate-y-1/2 blur-[120px]" />
-          <div className="absolute bottom-0 right-0 w-[40rem] h-[40rem] bg-[#B8860B]/10 rounded-full translate-x-1/3 translate-y-1/3 blur-[120px]" />
+          <div className="absolute bottom-0 right-0 w-[40rem] h-[40rem] bg-accent/10 rounded-full translate-x-1/3 translate-y-1/3 blur-[120px]" />
 
           <div className="max-w-5xl mx-auto px-6 relative z-10">
-            <div className="bg-white rounded-[3rem] shadow-2xl overflow-hidden p-8 sm:p-16 border border-[#B8860B]/10">
+            <div className="bg-white rounded-[3rem] shadow-2xl overflow-hidden p-8 sm:p-16 border border-accent/10">
               <div className="text-center mb-16">
-                <span className="text-[#B8860B] font-sans font-bold tracking-[0.3em] uppercase text-xs mb-4 block">รายละเอียดการจอง</span>
+                <span className="text-accent font-sans font-bold tracking-[0.3em] uppercase text-xs mb-4 block">รายละเอียดการจอง</span>
                 <h2 className="text-4xl font-serif font-medium text-slate-800">ข้อมูลการจอง</h2>
-                <p className="text-slate-500 mt-4 font-light">กรุณาระบุข้อมูลของคุณเพื่อยืนยันการเข้าพักที่ Loei Misty</p>
+                <p className="text-slate-500 mt-4 font-light">กรุณาระบุข้อมูลของคุณเพื่อยืนยันการเข้าพักที่ {siteConfig.homestayName}</p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-12">
@@ -1077,7 +1190,7 @@ export default function App() {
                   >
                     <img src={getDirectLink(selectedRoom.image)} className="w-24 h-24 rounded-2xl object-cover shadow-sm" alt="" />
                     <div>
-                      <p className="text-[10px] font-bold text-[#B8860B] uppercase tracking-[0.2em] mb-1">ห้องที่เลือก</p>
+                      <p className="text-[10px] font-bold text-accent uppercase tracking-[0.2em] mb-1">ห้องที่เลือก</p>
                       <h4 className="text-xl font-serif font-medium text-slate-800">{selectedRoom.name}</h4>
                       <p className="text-sm text-slate-500 font-light">฿{selectedRoom.price.toLocaleString()} ต่อคืน</p>
                     </div>
@@ -1091,14 +1204,14 @@ export default function App() {
                       ชื่อ-นามสกุล
                     </label>
                     <div className="relative">
-                      <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#B8860B]" />
+                      <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-accent" />
                       <input 
                         type="text" 
                         required
                         value={customerName}
                         onChange={(e) => setCustomerName(e.target.value)}
                         placeholder="เช่น สมชาย ใจดี"
-                        className="w-full pl-12 pr-4 py-4 rounded-2xl border border-slate-200 focus:ring-1 focus:ring-[#B8860B] focus:border-[#B8860B] outline-none transition-all bg-slate-50/50"
+                        className="w-full pl-12 pr-4 py-4 rounded-2xl border border-slate-200 focus:ring-1 focus:ring-accent focus:border-accent outline-none transition-all bg-slate-50/50"
                       />
                     </div>
                   </div>
@@ -1109,14 +1222,14 @@ export default function App() {
                       เบอร์โทรศัพท์
                     </label>
                     <div className="relative">
-                      <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#B8860B]" />
+                      <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-accent" />
                       <input 
                         type="tel" 
                         required
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
                         placeholder="0812345678"
-                        className="w-full pl-12 pr-4 py-4 rounded-2xl border border-slate-200 focus:ring-1 focus:ring-[#B8860B] focus:border-[#B8860B] outline-none transition-all bg-slate-50/50"
+                        className="w-full pl-12 pr-4 py-4 rounded-2xl border border-slate-200 focus:ring-1 focus:ring-accent focus:border-accent outline-none transition-all bg-slate-50/50"
                       />
                     </div>
                   </div>
@@ -1127,14 +1240,14 @@ export default function App() {
                       อีเมล
                     </label>
                     <div className="relative">
-                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#B8860B]" />
+                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-accent" />
                       <input 
                         type="email" 
                         required
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="example@gmail.com"
-                        className="w-full pl-12 pr-4 py-4 rounded-2xl border border-slate-200 focus:ring-1 focus:ring-[#B8860B] focus:border-[#B8860B] outline-none transition-all bg-slate-50/50"
+                        className="w-full pl-12 pr-4 py-4 rounded-2xl border border-slate-200 focus:ring-1 focus:ring-accent focus:border-accent outline-none transition-all bg-slate-50/50"
                       />
                     </div>
                   </div>
@@ -1145,7 +1258,7 @@ export default function App() {
                       วันที่เช็คอิน
                     </label>
                     <div className="relative">
-                      <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#B8860B] z-10" />
+                      <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-accent z-10" />
                       <DatePicker
                         selected={checkIn}
                         onChange={(date) => setCheckIn(date)}
@@ -1170,7 +1283,7 @@ export default function App() {
                       วันที่เช็คเอาท์
                     </label>
                     <div className="relative">
-                      <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#B8860B] z-10" />
+                      <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-accent z-10" />
                       <DatePicker
                         selected={checkOut}
                         onChange={(date) => setCheckOut(date)}
@@ -1191,21 +1304,24 @@ export default function App() {
                 </div>
 
                 {/* Payment Info */}
-                <div className="bg-[#F5F5DC]/20 p-8 sm:p-12 rounded-[2.5rem] border border-[#B8860B]/10">
+                <div className="bg-accent/5 p-8 sm:p-12 rounded-[2.5rem] border border-accent/10">
                   <div className="flex flex-col lg:flex-row items-center gap-12">
                     <div className="text-center lg:text-left flex-1">
-                      <h3 className="text-2xl font-serif font-medium text-[#064E3B] mb-4">ข้อมูลการชำระเงิน</h3>
+                      <h3 className="text-2xl font-serif font-medium text-primary mb-4">ข้อมูลการชำระเงิน</h3>
                       <p className="text-slate-600 text-sm mb-6 font-light leading-relaxed">
                         กรุณาโอนเงินตามยอดรวมไปยังบัญชีต่อไปนี้เพื่อยืนยันการจองของคุณ
                       </p>
                       <div className="space-y-2 mb-8">
-                        <p className="text-sm text-slate-500">ธนาคาร: <span className="text-slate-800 font-medium">กสิกรไทย (K-Bank)</span></p>
-                        <p className="text-sm text-slate-500">เลขที่บัญชี: <span className="text-slate-800 font-medium tracking-wider">123-4-56789-0</span></p>
-                        <p className="text-sm text-slate-500">ชื่อบัญชี: <span className="text-slate-800 font-medium">บริษัท เลย มิสตี้ โฮมสเตย์ จำกัด</span></p>
+                        <p className="text-sm text-slate-500">ธนาคาร: <span className="text-slate-800 font-medium">{siteConfig.bankName}</span></p>
+                        <p className="text-sm text-slate-500">เลขที่บัญชี: <span className="text-slate-800 font-medium tracking-wider">{siteConfig.bankAccountNo}</span></p>
+                        <p className="text-sm text-slate-500">ชื่อบัญชี: <span className="text-slate-800 font-medium">{siteConfig.bankAccountName}</span></p>
                       </div>
-                      <div className="bg-white p-4 inline-block rounded-[2rem] shadow-xl shadow-[#B8860B]/5 border border-black/5">
+                      <div className="bg-white p-4 inline-block rounded-[2rem] shadow-xl shadow-accent/5 border border-black/5">
                         <img 
-                          src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=LoeiMistyHomestay" 
+                          src={siteConfig.promptPayId 
+                            ? `https://promptpay.io/${siteConfig.promptPayId}.png`
+                            : `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${siteConfig.homestayName.replace(/\s/g, '')}${siteConfig.homestaySuffix.replace(/\s/g, '')}`
+                          } 
                           alt="คิวอาร์โค้ดสำหรับชำระเงิน" 
                           className="w-32 h-32"
                         />
@@ -1221,13 +1337,13 @@ export default function App() {
                           onChange={handleFileChange}
                           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                         />
-                        <div className={`h-56 rounded-[2rem] border border-dashed flex flex-col items-center justify-center transition-all duration-500 ${slipPreview ? 'border-[#064E3B] bg-[#064E3B]/5' : 'border-slate-300 group-hover:border-[#B8860B] bg-slate-50/50'}`}>
+                        <div className={`h-56 rounded-[2rem] border border-dashed flex flex-col items-center justify-center transition-all duration-500 ${slipPreview ? 'border-primary bg-primary/5' : 'border-slate-300 group-hover:border-accent bg-slate-50/50'}`}>
                           {slipPreview ? (
                             <img src={slipPreview} className="h-full w-full object-contain p-4 rounded-[2rem]" alt="ตัวอย่างสลิปโอนเงิน" />
                           ) : (
                             <>
                               <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-sm mb-4 group-hover:scale-110 transition-transform">
-                                <Upload className="w-5 h-5 text-[#B8860B]" />
+                                <Upload className="w-5 h-5 text-accent" />
                               </div>
                               <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">เลือกไฟล์</span>
                             </>
@@ -1242,16 +1358,16 @@ export default function App() {
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-10 pt-12 border-t border-slate-100">
                   <div className="text-center sm:text-left">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">ยอดรวมทั้งหมด</p>
-                    <p className="text-4xl font-sans font-semibold text-[#064E3B]">฿{calculateTotalPrice().toLocaleString()}</p>
+                    <p className="text-4xl font-sans font-semibold text-primary">฿{calculateTotalPrice().toLocaleString()}</p>
                   </div>
 
                   <button 
                     type="submit"
                     disabled={isSubmitting || isOverlap}
-                    className={`w-full sm:w-auto px-16 py-5 rounded-full font-bold text-lg shadow-xl transition-all flex items-center justify-center gap-4 ${
+                    className={`w-full sm:w-auto px-10 py-4 rounded-full font-bold text-base shadow-xl transition-all flex items-center justify-center gap-3 ${
                       isOverlap || isSubmitting
                         ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
-                        : 'bg-[#064E3B] text-white hover:bg-[#053F30] hover:shadow-2xl hover:-translate-y-1'
+                        : 'bg-primary text-white hover:opacity-90 hover:shadow-2xl hover:-translate-y-1'
                     }`}
                   >
                     {isSubmitting ? (
@@ -1262,7 +1378,7 @@ export default function App() {
                       'ไม่ว่างในช่วงวันที่เลือก'
                     ) : (
                       <>
-                        <Check className="w-6 h-6" />
+                        <Check className="w-5 h-5" />
                         ยืนยันการจองห้องพัก
                       </>
                     )}
@@ -1284,10 +1400,10 @@ export default function App() {
         </section>
 
         {/* Manage Booking Section */}
-        <section id="manage-booking" className="bg-[#FAFAFA] py-32">
+        <section id="manage-booking" className="bg-site-bg py-32">
           <div className="max-w-3xl mx-auto px-6">
             <div className="text-center mb-16">
-              <span className="text-[#B8860B] font-sans font-bold tracking-[0.3em] uppercase text-xs mb-4 block">การจัดการการจอง</span>
+              <span className="text-accent font-sans font-bold tracking-[0.3em] uppercase text-xs mb-4 block">การจัดการการจอง</span>
               <h2 className="text-4xl font-serif font-medium text-slate-800">จัดการการเข้าพักของคุณ</h2>
               <p className="text-slate-500 mt-4 font-light">กรอกเบอร์โทรศัพท์ของคุณเพื่อดูหรือยกเลิกการจอง</p>
             </div>
@@ -1295,19 +1411,19 @@ export default function App() {
             <div className="bg-white p-10 rounded-[2.5rem] shadow-xl border border-black/5">
               <div className="flex flex-col sm:flex-row gap-4">
                 <div className="relative flex-1">
-                  <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#B8860B]" />
+                  <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-accent" />
                   <input 
                     type="tel" 
                     value={searchPhone}
                     onChange={(e) => setSearchPhone(e.target.value)}
                     placeholder="กรอกเบอร์โทรศัพท์"
-                    className="w-full pl-12 pr-4 py-4 rounded-2xl border border-slate-200 focus:ring-1 focus:ring-[#B8860B] focus:border-[#B8860B] outline-none transition-all bg-slate-50/50"
+                    className="w-full pl-12 pr-4 py-4 rounded-2xl border border-slate-200 focus:ring-1 focus:ring-accent focus:border-accent outline-none transition-all bg-slate-50/50"
                   />
                 </div>
                 <button 
                   onClick={handleSearchBooking}
                   disabled={isSearching}
-                  className="px-10 py-4 bg-[#064E3B] text-white rounded-2xl font-bold hover:bg-[#053F30] transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 disabled:opacity-70"
+                  className="px-10 py-4 bg-primary text-white rounded-2xl font-bold hover:opacity-90 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 disabled:opacity-70"
                 >
                   {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />} ค้นหา
                 </button>
@@ -1345,15 +1461,15 @@ export default function App() {
                   >
                     <div className="bg-slate-50 p-8 rounded-[2rem] border border-black/5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
                       <div>
-                        <p className="text-[10px] font-bold text-[#B8860B] uppercase tracking-widest mb-1">พบข้อมูลการจอง</p>
+                        <p className="text-[10px] font-bold text-accent uppercase tracking-widest mb-1">พบข้อมูลการจอง</p>
                         <h4 className="text-2xl font-serif font-medium text-slate-800">{searchResult.customerName}</h4>
                         <p className="text-slate-500 font-light mt-1">ห้อง: {searchResult.roomName}</p>
                         <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm font-light">
                           <p className="text-slate-600">
-                            <span className="font-medium text-[#064E3B]">เช็คอิน:</span> {formatSheetDate(searchResult.checkIn)}
+                            <span className="font-medium text-primary">เช็คอิน:</span> {formatSheetDate(searchResult.checkIn)}
                           </p>
                           <p className="text-slate-600">
-                            <span className="font-medium text-[#064E3B]">เช็คเอาท์:</span> {formatSheetDate(searchResult.checkOut)}
+                            <span className="font-medium text-primary">เช็คเอาท์:</span> {formatSheetDate(searchResult.checkOut)}
                           </p>
                         </div>
                       </div>
@@ -1380,51 +1496,56 @@ export default function App() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-20 mb-20">
             <div className="space-y-10">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-[#B8860B] rounded-full flex items-center justify-center shadow-lg shadow-[#B8860B]/20">
+                <div className="w-12 h-12 bg-accent rounded-full flex items-center justify-center shadow-lg shadow-accent/20">
                   <Mountain className="w-7 h-7 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-3xl font-serif font-medium tracking-tight">Loei Misty</h2>
-                  <p className="text-[10px] font-bold text-[#B8860B] uppercase tracking-[0.4em] mt-1">Homestay & Retreat</p>
+                  <h2 className="text-3xl font-serif font-medium tracking-tight">{siteConfig.homestayName}</h2>
+                  <p className="text-[10px] font-bold text-accent uppercase tracking-[0.4em] mt-1">{siteConfig.homestaySuffix}</p>
                 </div>
               </div>
               <p className="text-slate-400 font-light leading-relaxed max-w-md text-lg">
-                สัมผัสความงามอันเงียบสงบของขุนเขาและสายหมอกในจังหวัดเลย ผ่านคอลเลกชันที่พักสุดหรูที่คัดสรรมาเพื่อคุณโดยเฉพาะ เพื่อมอบประสบการณ์การพักผ่อนที่ล้ำค่าที่สุด
+                {siteConfig.heroDescription}
               </p>
               <div className="flex gap-6 pt-4">
-                <div className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center hover:bg-white/5 hover:border-[#B8860B] transition-all cursor-pointer group">
-                  <Facebook className="w-5 h-5 text-slate-400 group-hover:text-[#B8860B]" />
-                </div>
+                <a 
+                  href={siteConfig.contactFacebookUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center hover:bg-white/5 hover:border-accent transition-all cursor-pointer group"
+                >
+                  <Facebook className="w-5 h-5 text-slate-400 group-hover:text-accent" />
+                </a>
               </div>
             </div>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-12">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
               <div className="space-y-8">
-                <h4 className="text-xs font-bold uppercase tracking-[0.3em] text-[#B8860B]">ติดต่อเรา</h4>
+                <h4 className="text-xs font-bold uppercase tracking-[0.3em] text-accent">ติดต่อเรา</h4>
                 <ul className="space-y-6 text-slate-400 font-light">
                   <li className="flex items-start gap-4 hover:text-white transition-colors cursor-pointer group">
-                    <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center group-hover:bg-[#B8860B]/10 transition-colors">
-                      <Phone className="w-4 h-4 text-[#B8860B]" />
+                    <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center group-hover:bg-accent/10 transition-colors shrink-0">
+                      <Phone className="w-4 h-4 text-accent" />
                     </div>
-                    <span className="pt-1">+66 81 234 5678</span>
+                    <span className="pt-1 break-all">{siteConfig.contactPhone}</span>
                   </li>
                   <li className="flex items-start gap-4 hover:text-white transition-colors cursor-pointer group">
-                    <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center group-hover:bg-[#B8860B]/10 transition-colors">
-                      <Mail className="w-4 h-4 text-[#B8860B]" />
+                    <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center group-hover:bg-accent/10 transition-colors shrink-0">
+                      <Mail className="w-4 h-4 text-accent" />
                     </div>
-                    <span className="pt-1">contact@loeimisty.com</span>
+                    <span className="pt-1 break-all">{siteConfig.contactEmail}</span>
                   </li>
                   <li className="flex items-start gap-4 hover:text-white transition-colors cursor-pointer group">
-                    <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center group-hover:bg-[#B8860B]/10 transition-colors">
-                      <MapPin className="w-4 h-4 text-[#B8860B]" />
+                    <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center group-hover:bg-accent/10 transition-colors shrink-0">
+                      <MapPin className="w-4 h-4 text-accent" />
                     </div>
-                    <span className="pt-1 leading-relaxed">อ.ภูเรือ, จ.เลย, ประเทศไทย</span>
+                    <span className="pt-1 leading-relaxed break-words">{siteConfig.contactAddress}</span>
                   </li>
                 </ul>
               </div>
 
               <div className="space-y-8">
-                <h4 className="text-xs font-bold uppercase tracking-[0.3em] text-[#B8860B]">เวลาทำการ</h4>
+                <h4 className="text-xs font-bold uppercase tracking-[0.3em] text-accent">เวลาทำการ</h4>
                 <ul className="space-y-4 text-slate-400 font-light">
                   <li>
                     <p className="text-white font-medium mb-1">Check-in</p>
@@ -1440,17 +1561,17 @@ export default function App() {
           </div>
           
           <div className="pt-12 border-t border-white/5 flex flex-col sm:flex-row justify-between items-center gap-8 text-slate-500 text-[10px] font-bold tracking-[0.2em] uppercase">
-            <p>© 2026 Loei Misty Homestay. สงวนลิขสิทธิ์.</p>
+            <p>© 2026 {siteConfig.homestayName} {siteConfig.homestaySuffix}. สงวนลิขสิทธิ์.</p>
             <div className="flex gap-12">
               <span 
                 onClick={() => setShowPrivacyPolicy(true)}
-                className="hover:text-[#B8860B] cursor-pointer transition-colors"
+                className="hover:text-accent cursor-pointer transition-colors"
               >
                 นโยบายความเป็นส่วนตัว
               </span>
               <span 
                 onClick={() => setShowTermsOfService(true)}
-                className="hover:text-[#B8860B] cursor-pointer transition-colors"
+                className="hover:text-accent cursor-pointer transition-colors"
               >
                 ข้อกำหนดการให้บริการ
               </span>
@@ -1474,12 +1595,12 @@ export default function App() {
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative bg-white rounded-[3rem] shadow-2xl p-12 max-w-lg w-full text-center overflow-hidden border border-[#B8860B]/20"
+              className="relative bg-white rounded-[3rem] shadow-2xl p-12 max-w-lg w-full text-center overflow-hidden border border-accent/20"
             >
-              <div className="absolute top-0 left-0 w-full h-2 bg-[#064E3B]" />
-              <div className="absolute top-2 left-0 w-full h-[1px] bg-[#B8860B]/30" />
+              <div className="absolute top-0 left-0 w-full h-2 bg-primary" />
+              <div className="absolute top-2 left-0 w-full h-[1px] bg-accent/30" />
               <div className="w-24 h-24 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-8">
-                <Check className="w-12 h-12 text-[#064E3B]" />
+                <Check className="w-12 h-12 text-primary" />
               </div>
               <h3 className="text-3xl font-serif font-medium text-slate-800 mb-4">การจองสำเร็จ</h3>
               <p className="text-slate-500 font-light leading-relaxed mb-10">
@@ -1564,7 +1685,7 @@ export default function App() {
               
               <div className="space-y-4">
                 <a 
-                  href="https://line.me/ti/p/@loeimisty"
+                  href={siteConfig.contactLineId.startsWith('http') ? siteConfig.contactLineId : `https://line.me/ti/p/@${siteConfig.contactLineId}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-full py-5 bg-[#00B900] text-white rounded-2xl font-bold hover:bg-[#009900] transition-all shadow-lg flex items-center justify-center gap-3"
@@ -1617,7 +1738,7 @@ export default function App() {
 
                 <div className="prose prose-slate max-w-none space-y-8 text-slate-600 font-light leading-relaxed">
                   <p>
-                    ยินดีต้อนรับสู่ระบบจองที่พัก Loei Misty การใช้งานเว็บไซต์นี้ถือว่าท่านได้ตกลงและยอมรับข้อกำหนดดังต่อไปนี้:
+                    ยินดีต้อนรับสู่ระบบจองที่พัก {siteConfig.homestayName} การใช้งานเว็บไซต์นี้ถือว่าท่านได้ตกลงและยอมรับข้อกำหนดดังต่อไปนี้:
                   </p>
 
                   <section className="space-y-4">
@@ -1698,7 +1819,7 @@ export default function App() {
 
                 <div className="prose prose-slate max-w-none space-y-8 text-slate-600 font-light leading-relaxed">
                   <p>
-                    <strong>Loei Misty</strong> ("เรา") ให้ความสำคัญกับการคุ้มครองข้อมูลส่วนบุคคลของท่าน เพื่อให้ท่านมั่นใจได้ว่าข้อมูลการจองที่พักของท่านจะถูกจัดการอย่างปลอดภัยตามมาตรฐาน พ.ร.บ. คุ้มครองข้อมูลส่วนบุคคล (PDPA)
+                    <strong>{siteConfig.homestayName}</strong> ("เรา") ให้ความสำคัญกับการคุ้มครองข้อมูลส่วนบุคคลของท่าน เพื่อให้ท่านมั่นใจได้ว่าข้อมูลการจองที่พักของท่านจะถูกจัดการอย่างปลอดภัยตามมาตรฐาน พ.ร.บ. คุ้มครองข้อมูลส่วนบุคคล (PDPA)
                   </p>
 
                   <section className="space-y-4">
@@ -1774,47 +1895,81 @@ export default function App() {
               initial={{ opacity: 0, scale: 0.95, y: 30 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 30 }}
-              className="relative bg-white rounded-[3rem] shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden border border-[#B8860B]/10"
+              className="relative bg-white rounded-[2rem] md:rounded-[3rem] shadow-2xl max-w-5xl w-full max-h-[95vh] md:max-h-[90vh] overflow-hidden border border-accent/10 flex flex-col md:flex-row"
             >
               <button 
                 onClick={() => setViewingRoom(null)}
-                className="absolute top-6 right-6 z-10 w-12 h-12 bg-white/20 hover:bg-white/40 backdrop-blur-md rounded-full flex items-center justify-center text-white transition-all"
+                className="absolute top-4 right-4 md:top-6 md:right-6 z-20 w-10 h-10 md:w-12 md:h-12 bg-black/20 hover:bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center text-white transition-all shadow-lg"
               >
-                <X className="w-6 h-6" />
+                <X className="w-5 h-5 md:w-6 md:h-6" />
               </button>
 
-              <div className="flex flex-col md:flex-row h-full">
-                <div className="md:w-1/2 h-80 md:h-auto relative">
-                  <img 
+              {/* Image Gallery Side */}
+              <div className="w-full md:w-1/2 h-[40vh] md:h-auto relative group">
+                <AnimatePresence mode="wait">
+                  <motion.img 
+                    key={activeImageIndex}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.5 }}
                     src={getDirectLink(viewingRoom.images[activeImageIndex])} 
                     className="w-full h-full object-cover"
                     alt={viewingRoom.name}
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent md:hidden" />
-                  
-                  {/* Gallery Navigation */}
-                  <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 bg-black/20 backdrop-blur-md p-2 rounded-full">
-                    {viewingRoom.images.map((_, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => setActiveImageIndex(idx)}
-                        className={`w-2 h-2 rounded-full transition-all ${activeImageIndex === idx ? 'bg-white w-6' : 'bg-white/50'}`}
-                      />
-                    ))}
-                  </div>
-                </div>
+                </AnimatePresence>
                 
-                <div className="md:w-1/2 p-10 md:p-16 overflow-y-auto">
-                  <span className="text-[#B8860B] font-sans font-bold tracking-[0.3em] uppercase text-[10px] mb-4 block">ห้องพักสุดหรู</span>
-                  <h3 className="text-4xl font-serif font-medium text-slate-800 mb-6">{viewingRoom.name}</h3>
-                  <p className="text-slate-500 font-light leading-relaxed mb-10">
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                
+                {/* Navigation Arrows */}
+                {viewingRoom.images.length > 1 && (
+                  <>
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveImageIndex((prev) => (prev === 0 ? viewingRoom.images.length - 1 : prev - 1));
+                      }}
+                      className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/20 hover:bg-white/40 backdrop-blur-md flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity hidden md:flex"
+                    >
+                      <ChevronRight className="w-6 h-6 rotate-180" />
+                    </button>
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveImageIndex((prev) => (prev === viewingRoom.images.length - 1 ? 0 : prev + 1));
+                      }}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/20 hover:bg-white/40 backdrop-blur-md flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity hidden md:flex"
+                    >
+                      <ChevronRight className="w-6 h-6" />
+                    </button>
+                  </>
+                )}
+
+                {/* Gallery Dots */}
+                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 bg-black/20 backdrop-blur-md p-2 rounded-full z-10">
+                  {viewingRoom.images.map((_, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setActiveImageIndex(idx)}
+                      className={`w-2 h-2 rounded-full transition-all ${activeImageIndex === idx ? 'bg-white w-6' : 'bg-white/50'}`}
+                    />
+                  ))}
+                </div>
+              </div>
+              
+              {/* Content Side */}
+              <div className="w-full md:w-1/2 p-8 md:p-16 overflow-y-auto flex flex-col">
+                <div className="flex-1">
+                  <span className="text-accent font-sans font-bold tracking-[0.3em] uppercase text-[10px] mb-4 block">ห้องพักสุดหรู</span>
+                  <h3 className="text-3xl md:text-4xl font-serif font-medium text-slate-800 mb-6">{viewingRoom.name}</h3>
+                  <p className="text-slate-500 font-light leading-relaxed mb-10 text-sm md:text-base">
                     {viewingRoom.description || viewingRoom.fullDescription || "สัมผัสประสบการณ์การพักผ่อนที่เหนือระดับด้วยห้องพักที่ออกแบบมาอย่างพิถีพิถัน พร้อมสิ่งอำนวยความสะดวกครบครันและวิวทิวทัศน์ที่สวยงาม"}
                   </p>
                   
-                  <div className="grid grid-cols-2 gap-8 mb-12">
+                  <div className="grid grid-cols-2 gap-6 md:gap-8 mb-12">
                     <div className="flex items-center gap-4">
                       <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center">
-                        <Users className="w-5 h-5 text-[#B8860B]" />
+                        <Users className="w-5 h-5 text-accent" />
                       </div>
                       <div>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">จำนวนผู้เข้าพัก</p>
@@ -1823,7 +1978,7 @@ export default function App() {
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center">
-                        <Wifi className="w-5 h-5 text-[#B8860B]" />
+                        <Wifi className="w-5 h-5 text-accent" />
                       </div>
                       <div>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">อินเทอร์เน็ต</p>
@@ -1847,30 +2002,30 @@ export default function App() {
                         
                         return (
                           <div key={amenity} className="flex items-center gap-3 text-sm text-slate-600 font-light">
-                            <Icon className="w-4 h-4 text-[#B8860B]" />
+                            <Icon className="w-4 h-4 text-accent" />
                             {amenity}
                           </div>
                         );
                       })}
                     </div>
                   </div>
+                </div>
 
-                  <div className="flex items-center justify-between gap-6 pt-10 border-t border-slate-100">
-                    <div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">ราคาต่อคืน</p>
-                      <p className="text-3xl font-sans font-semibold text-[#064E3B]">฿{viewingRoom.price.toLocaleString()}</p>
-                    </div>
-                    <button 
-                      onClick={() => {
-                        setSelectedRoom(viewingRoom);
-                        setViewingRoom(null);
-                        document.getElementById('booking-form')?.scrollIntoView({ behavior: 'smooth' });
-                      }}
-                      className="px-10 py-4 bg-[#064E3B] text-white rounded-2xl font-bold hover:bg-[#053F30] transition-all shadow-lg hover:shadow-xl"
-                    >
-                      จองตอนนี้
-                    </button>
+                <div className="flex items-center justify-between gap-6 pt-10 border-t border-slate-100 mt-auto">
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">ราคาต่อคืน</p>
+                    <p className="text-2xl md:text-3xl font-sans font-semibold text-primary">฿{viewingRoom.price.toLocaleString()}</p>
                   </div>
+                  <button 
+                    onClick={() => {
+                      setSelectedRoom(viewingRoom);
+                      setViewingRoom(null);
+                      document.getElementById('booking-form')?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    className="px-8 md:px-10 py-4 bg-primary text-white rounded-2xl font-bold hover:opacity-90 transition-all shadow-lg hover:shadow-xl text-sm md:text-base"
+                  >
+                    จองตอนนี้
+                  </button>
                 </div>
               </div>
             </motion.div>
