@@ -1595,7 +1595,7 @@ export default function App() {
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative bg-white rounded-[3rem] shadow-2xl p-12 max-w-lg w-full text-center overflow-hidden border border-accent/20"
+              className="relative bg-site-bg rounded-[3rem] shadow-2xl p-12 max-w-lg w-full text-center overflow-hidden border border-accent/20 font-sans"
             >
               <div className="absolute top-0 left-0 w-full h-2 bg-primary" />
               <div className="absolute top-2 left-0 w-full h-[1px] bg-accent/30" />
@@ -1720,34 +1720,34 @@ export default function App() {
               initial={{ opacity: 0, scale: 0.95, y: 30 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 30 }}
-              className="relative bg-white rounded-[3rem] shadow-2xl max-w-3xl w-full max-h-[85vh] overflow-hidden border border-[#B8860B]/10 flex flex-col"
+              className="relative bg-site-bg rounded-[3rem] shadow-2xl max-w-3xl w-full max-h-[85vh] overflow-hidden border border-accent/10 flex flex-col font-sans"
             >
               <div className="p-8 sm:p-12 overflow-y-auto custom-scrollbar">
                 <div className="flex justify-between items-start mb-8">
                   <div>
-                    <span className="text-[#B8860B] font-sans font-bold tracking-[0.3em] uppercase text-[10px] mb-2 block">Terms & Conditions</span>
-                    <h3 className="text-3xl font-serif font-medium text-slate-800">ข้อกำหนดและเงื่อนไขการให้บริการ</h3>
+                    <span className="text-accent font-sans font-bold tracking-[0.3em] uppercase text-[10px] mb-2 block">Terms & Conditions</span>
+                    <h3 className="text-3xl font-serif font-medium text-primary">ข้อกำหนดและเงื่อนไขการให้บริการ</h3>
                   </div>
                   <button 
                     onClick={() => setShowTermsOfService(false)}
-                    className="w-10 h-10 bg-slate-50 hover:bg-slate-100 rounded-full flex items-center justify-center text-slate-400 transition-all"
+                    className="w-10 h-10 bg-white/50 hover:bg-white/80 rounded-full flex items-center justify-center text-slate-400 transition-all"
                   >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
 
-                <div className="prose prose-slate max-w-none space-y-8 text-slate-600 font-light leading-relaxed">
+                <div className="max-w-none space-y-8 text-primary/80 font-light leading-relaxed">
                   <p>
                     ยินดีต้อนรับสู่ระบบจองที่พัก {siteConfig.homestayName} การใช้งานเว็บไซต์นี้ถือว่าท่านได้ตกลงและยอมรับข้อกำหนดดังต่อไปนี้:
                   </p>
 
                   <section className="space-y-4">
-                    <h4 className="text-lg font-serif font-medium text-[#064E3B]">1. ความถูกต้องของข้อมูลการจอง:</h4>
+                    <h4 className="text-lg font-serif font-medium text-primary">1. ความถูกต้องของข้อมูลการจอง:</h4>
                     <p>ผู้ใช้งานตกลงจะให้ข้อมูลที่เป็นจริงและถูกต้องในการจองที่พักเท่านั้น หากพบว่ามีการใช้ข้อมูลเท็จ หรือการแอบอ้างข้อมูลผู้อื่น เราขอสงวนสิทธิ์ในการยกเลิกรายการจองโดยไม่ต้องแจ้งให้ทราบล่วงหน้า</p>
                   </section>
 
                   <section className="space-y-4">
-                    <h4 className="text-lg font-serif font-medium text-[#064E3B]">2. กระบวนการจองและยืนยัน:</h4>
+                    <h4 className="text-lg font-serif font-medium text-primary">2. กระบวนการจองและยืนยัน:</h4>
                     <ul className="list-disc pl-5 space-y-2">
                       <li>สถานะห้องว่างบนเว็บไซต์เป็นข้อมูลแบบ Real-time อย่างไรก็ตาม การจองจะสมบูรณ์ต่อเมื่อระบบตรวจสอบหลักฐานการชำระเงินเรียบร้อยแล้วเท่านั้น</li>
                       <li>การยืนยันการจองจะถูกส่งผ่านระบบ [อีเมล/LINE] ตามที่ท่านได้ให้ข้อมูลไว้</li>
@@ -1755,7 +1755,7 @@ export default function App() {
                   </section>
 
                   <section className="space-y-4">
-                    <h4 className="text-lg font-serif font-medium text-[#064E3B]">3. การใช้งานเว็บไซต์อย่างเหมาะสม:</h4>
+                    <h4 className="text-lg font-serif font-medium text-primary">3. การใช้งานเว็บไซต์อย่างเหมาะสม:</h4>
                     <ul className="list-disc pl-5 space-y-2">
                       <li>ห้ามมิให้ผู้ใช้งานพยายามแทรกแซง เจาะระบบ หรือกระทำการใดๆ ที่ส่งผลกระทบต่อความเสถียรของเว็บไซต์</li>
                       <li>เราไม่อนุญาตให้ใช้โปรแกรมอัตโนมัติ (Bot) ในการดึงข้อมูลหรือสร้างรายการจองในปริมาณมากเกินปกติ</li>
@@ -1763,12 +1763,12 @@ export default function App() {
                   </section>
 
                   <section className="space-y-4">
-                    <h4 className="text-lg font-serif font-medium text-[#064E3B]">4. การจำกัดความรับผิดชอบ:</h4>
+                    <h4 className="text-lg font-serif font-medium text-primary">4. การจำกัดความรับผิดชอบ:</h4>
                     <p>แม้เราจะใช้ความพยายามอย่างเต็มที่เพื่อให้ระบบทำงานได้อย่างราบรื่น แต่เราไม่สามารถรับรองความต่อเนื่อง 100% ในกรณีที่เกิดเหตุขัดข้องทางเทคนิคเหนือการควบคุม (เช่น ระบบอินเทอร์เน็ตล่ม หรือการขัดข้องจากผู้ให้บริการคลาวด์) อย่างไรก็ตาม เราจะดำเนินการแก้ไขปัญหาให้เร็วที่สุดเพื่อรักษาผลประโยชน์ของผู้ใช้งาน</p>
                   </section>
 
                   <section className="space-y-4">
-                    <h4 className="text-lg font-serif font-medium text-[#064E3B]">5. การเปลี่ยนแปลงข้อกำหนด:</h4>
+                    <h4 className="text-lg font-serif font-medium text-primary">5. การเปลี่ยนแปลงข้อกำหนด:</h4>
                     <p>เราขอสงวนสิทธิ์ในการปรับปรุงหรือเปลี่ยนแปลงข้อกำหนดเหล่านี้ได้ทุกเมื่อเพื่อให้สอดคล้องกับมาตรฐานการให้บริการที่ดียิ่งขึ้น</p>
                   </section>
                 </div>
@@ -1776,7 +1776,7 @@ export default function App() {
               <div className="p-8 bg-slate-50 border-t border-slate-100 flex justify-end">
                 <button 
                   onClick={() => setShowTermsOfService(false)}
-                  className="px-8 py-3 bg-[#064E3B] text-white rounded-xl font-bold hover:bg-[#053F30] transition-all shadow-md"
+                  className="px-8 py-3 bg-primary text-white rounded-xl font-bold hover:brightness-90 transition-all shadow-md"
                 >
                   ยอมรับเงื่อนไข
                 </button>
@@ -1801,29 +1801,29 @@ export default function App() {
               initial={{ opacity: 0, scale: 0.95, y: 30 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 30 }}
-              className="relative bg-white rounded-[3rem] shadow-2xl max-w-3xl w-full max-h-[85vh] overflow-hidden border border-[#B8860B]/10 flex flex-col"
+              className="relative bg-site-bg rounded-[3rem] shadow-2xl max-w-3xl w-full max-h-[85vh] overflow-hidden border border-accent/10 flex flex-col font-sans"
             >
               <div className="p-8 sm:p-12 overflow-y-auto custom-scrollbar">
                 <div className="flex justify-between items-start mb-8">
                   <div>
-                    <span className="text-[#B8860B] font-sans font-bold tracking-[0.3em] uppercase text-[10px] mb-2 block">Legal Information</span>
-                    <h3 className="text-3xl font-serif font-medium text-slate-800">นโยบายความเป็นส่วนตัว</h3>
+                    <span className="text-accent font-sans font-bold tracking-[0.3em] uppercase text-[10px] mb-2 block">Legal Information</span>
+                    <h3 className="text-3xl font-serif font-medium text-primary">นโยบายความเป็นส่วนตัว</h3>
                   </div>
                   <button 
                     onClick={() => setShowPrivacyPolicy(false)}
-                    className="w-10 h-10 bg-slate-50 hover:bg-slate-100 rounded-full flex items-center justify-center text-slate-400 transition-all"
+                    className="w-10 h-10 bg-white/50 hover:bg-white/80 rounded-full flex items-center justify-center text-slate-400 transition-all"
                   >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
 
-                <div className="prose prose-slate max-w-none space-y-8 text-slate-600 font-light leading-relaxed">
+                <div className="max-w-none space-y-8 text-primary/80 font-light leading-relaxed">
                   <p>
                     <strong>{siteConfig.homestayName}</strong> ("เรา") ให้ความสำคัญกับการคุ้มครองข้อมูลส่วนบุคคลของท่าน เพื่อให้ท่านมั่นใจได้ว่าข้อมูลการจองที่พักของท่านจะถูกจัดการอย่างปลอดภัยตามมาตรฐาน พ.ร.บ. คุ้มครองข้อมูลส่วนบุคคล (PDPA)
                   </p>
 
                   <section className="space-y-4">
-                    <h4 className="text-lg font-serif font-medium text-[#064E3B]">ข้อมูลที่เราจัดเก็บ:</h4>
+                    <h4 className="text-lg font-serif font-medium text-primary">ข้อมูลที่เราจัดเก็บ:</h4>
                     <ul className="list-disc pl-5 space-y-2">
                       <li><strong>ข้อมูลระบุตัวตน:</strong> ชื่อ-นามสกุล, เบอร์โทรศัพท์, LINE ID</li>
                       <li><strong>ข้อมูลการทำรายการ:</strong> วันที่เข้าพัก, จำนวนผู้เข้าพัก, รายละเอียดห้องพักที่ท่านเลือก</li>
@@ -1832,7 +1832,7 @@ export default function App() {
                   </section>
 
                   <section className="space-y-4">
-                    <h4 className="text-lg font-serif font-medium text-[#064E3B]">วัตถุประสงค์ในการเก็บข้อมูล:</h4>
+                    <h4 className="text-lg font-serif font-medium text-primary">วัตถุประสงค์ในการเก็บข้อมูล:</h4>
                     <ul className="list-disc pl-5 space-y-2">
                       <li>เพื่อดำเนินการจองและตรวจสอบสถานะห้องว่างแบบ Real-time ผ่านระบบอัตโนมัติ</li>
                       <li>เพื่อใช้ติดต่อสื่อสาร แจ้งสถานะการจอง และประสานงานการเข้าพัก</li>
@@ -1841,13 +1841,13 @@ export default function App() {
                   </section>
 
                   <section className="space-y-4">
-                    <h4 className="text-lg font-serif font-medium text-[#064E3B]">การรักษาความปลอดภัยและระยะเวลาจัดเก็บ:</h4>
+                    <h4 className="text-lg font-serif font-medium text-primary">การรักษาความปลอดภัยและระยะเวลาจัดเก็บ:</h4>
                     <p>ข้อมูลของท่านจะถูกส่งผ่านระบบที่มีการเข้ารหัสปลอดภัย และจัดเก็บไว้ในฐานข้อมูลคลาวด์มาตรฐานระดับสากล (Google Cloud Infrastructure)</p>
                     <p>เราจะจัดเก็บข้อมูลไว้เท่าที่จำเป็นสำหรับวัตถุประสงค์ในการให้บริการ และจะลบข้อมูลเมื่อสิ้นสุดระยะเวลาที่กำหนดตามกฎหมาย</p>
                   </section>
 
                   <section className="space-y-4">
-                    <h4 className="text-lg font-serif font-medium text-[#064E3B]">สิทธิของเจ้าของข้อมูล:</h4>
+                    <h4 className="text-lg font-serif font-medium text-primary">สิทธิของเจ้าของข้อมูล:</h4>
                     <p>ท่านมีสิทธิขอเข้าถึง แก้ไข ลบ หรือขอให้ระงับการใช้ข้อมูลส่วนบุคคลของท่าน โดยสามารถติดต่อเจ้าหน้าที่ผ่านช่องทางที่ระบุไว้บนเว็บไซต์นี้</p>
                   </section>
                 </div>
@@ -1855,7 +1855,7 @@ export default function App() {
               <div className="p-8 bg-slate-50 border-t border-slate-100 flex justify-end">
                 <button 
                   onClick={() => setShowPrivacyPolicy(false)}
-                  className="px-8 py-3 bg-[#064E3B] text-white rounded-xl font-bold hover:bg-[#053F30] transition-all shadow-md"
+                  className="px-8 py-3 bg-primary text-white rounded-xl font-bold hover:brightness-90 transition-all shadow-md"
                 >
                   รับทราบ
                 </button>
@@ -1873,7 +1873,7 @@ export default function App() {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.5 }}
             onClick={scrollToTop}
-            className="fixed bottom-8 right-8 z-[90] w-12 h-12 bg-[#B8860B] text-white rounded-full flex items-center justify-center shadow-xl hover:bg-[#966D09] transition-all hover:scale-110 active:scale-95"
+            className="fixed bottom-8 right-8 z-[90] w-12 h-12 bg-accent text-white rounded-full flex items-center justify-center shadow-xl hover:brightness-90 transition-all hover:scale-110 active:scale-95"
           >
             <ArrowUp className="w-6 h-6" />
           </motion.button>
