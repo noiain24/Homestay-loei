@@ -265,6 +265,10 @@ export default function App() {
   const [checkOut, setCheckOut] = useState<Date | null>(null);
   const [slipFile, setSlipFile] = useState<File | Blob | null>(null);
   const [slipPreview, setSlipPreview] = useState<string | null>(null);
+  const [couponCode, setCouponCode] = useState('');
+  const [appliedDiscount, setAppliedDiscount] = useState<{code: string, amount: number, type: 'percent' | 'fixed'} | null>(null);
+  const [discountError, setDiscountError] = useState<string | null>(null);
+  const [discountCodes, setDiscountCodes] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
@@ -552,8 +556,10 @@ export default function App() {
   // Fetch bookings from Google Sheets (Bookings tab)
   useEffect(() => {
     const bookingsUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Bookings`;
+    const promotionsUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Promotions`;
     console.log('Fetching Bookings from Sheet URL:', bookingsUrl);
     
+    // Fetch Bookings
     Papa.parse(bookingsUrl, {
       download: true,
       header: true,
@@ -628,6 +634,20 @@ export default function App() {
       },
       error: (error) => {
         console.error('Error fetching bookings data:', error);
+      }
+    });
+
+    // Fetch Promotions
+    Papa.parse(promotionsUrl, {
+      download: true,
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        console.log('Promotions Data:', results.data);
+        setDiscountCodes(results.data);
+      },
+      error: (error) => {
+        console.warn('Error fetching promotions data (Sheet "Promotions" might not exist):', error);
       }
     });
   }, []);
@@ -738,7 +758,130 @@ export default function App() {
     if (!selectedRoom || !checkIn || !checkOut) return 0;
     const diffTime = Math.abs(checkOut.getTime() - checkIn.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays > 0 ? diffDays * selectedRoom.price : selectedRoom.price;
+    const basePrice = diffDays > 0 ? diffDays * selectedRoom.price : selectedRoom.price;
+    
+    if (appliedDiscount) {
+      if (appliedDiscount.type === 'percent') {
+        return basePrice * (1 - appliedDiscount.amount / 100);
+      } else {
+        return Math.max(0, basePrice - appliedDiscount.amount);
+      }
+    }
+    
+    return basePrice;
+  };
+
+  const handleApplyDiscount = () => {
+    setDiscountError(null);
+    if (!couponCode.trim()) {
+      setAppliedDiscount(null);
+      return;
+    }
+
+    const codeData = discountCodes.find(d => 
+      getValue(d, 'CODE', 'Code', 'code', 'โค้ด', 'Discount Code')?.toString().trim().toUpperCase() === couponCode.trim().toUpperCase()
+    );
+
+    if (codeData) {
+      const status = getValue(codeData, 'Status', 'status', 'สถานะ')?.toString().trim();
+      if (status && status !== 'Active') {
+        setDiscountError('โค้ดส่วนลดนี้ไม่สามารถใช้งานได้ในขณะนี้');
+        setAppliedDiscount(null);
+        return;
+      }
+
+      const startDateStr = getValue(codeData, 'Start Date', 'start_date', 'วันที่เริ่ม');
+      const endDateStr = getValue(codeData, 'End Date', 'end_date', 'วันที่สิ้นสุด');
+      
+      const parseSheetDate = (dateVal: any) => {
+        if (!dateVal) return null;
+        
+        // Handle Google Sheets serial numbers
+        if (typeof dateVal === 'number' || (!isNaN(Number(dateVal)) && !String(dateVal).includes('/') && !String(dateVal).includes('-'))) {
+          const num = Number(dateVal);
+          return new Date(Math.round((num - 25569) * 86400 * 1000));
+        }
+
+        const str = String(dateVal).trim();
+        if (!str) return null;
+
+        // Try to parse DD/MM/YYYY or YYYY-MM-DD
+        const parts = str.split(/[\/\-]/);
+        if (parts.length === 3) {
+          let day, month, year;
+          
+          // Check if first part is year (YYYY-MM-DD)
+          if (parts[0].length === 4) {
+            year = parseInt(parts[0]);
+            month = parseInt(parts[1]) - 1;
+            day = parseInt(parts[2]);
+          } else {
+            // Assume DD/MM/YYYY
+            day = parseInt(parts[0]);
+            month = parseInt(parts[1]) - 1;
+            year = parseInt(parts[2]);
+          }
+
+          // Handle Thai Buddhist Era (BE)
+          if (year > 2400) {
+            year -= 543;
+          } else if (year < 100) {
+            // Handle 2-digit years (assume 20xx)
+            year += 2000;
+          }
+
+          const d = new Date(year, month, day);
+          if (!isNaN(d.getTime())) return d;
+        }
+
+        // Fallback to standard parsing
+        const d = new Date(str);
+        if (!isNaN(d.getTime())) {
+          // Check if the parsed year looks like BE
+          if (d.getFullYear() > 2400) {
+            d.setFullYear(d.getFullYear() - 543);
+          }
+          return d;
+        }
+        
+        return null;
+      };
+
+      const startDate = parseSheetDate(startDateStr);
+      const endDate = parseSheetDate(endDateStr);
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+
+      if (startDate && now < startDate) {
+        setDiscountError('โค้ดส่วนลดนี้ยังไม่เริ่มใช้งาน');
+        setAppliedDiscount(null);
+        return;
+      }
+
+      if (endDate && now > endDate) {
+        setDiscountError('โค้ดส่วนลดนี้หมดอายุแล้ว');
+        setAppliedDiscount(null);
+        return;
+      }
+
+      const amountRaw = getValue(codeData, 'Discount', 'Amount', 'amount', 'ส่วนลด', 'Value')?.toString() || '0';
+      const amount = parseFloat(amountRaw.replace(/[^\d.]/g, ''));
+      const type = amountRaw.includes('%') ? 'percent' : 'fixed';
+      
+      if (amount > 0) {
+        setAppliedDiscount({
+          code: couponCode.trim().toUpperCase(),
+          amount,
+          type: type as 'percent' | 'fixed'
+        });
+      } else {
+        setDiscountError('โค้ดส่วนลดนี้ไม่ถูกต้อง');
+        setAppliedDiscount(null);
+      }
+    } else {
+      setDiscountError('ไม่พบโค้ดส่วนลดนี้');
+      setAppliedDiscount(null);
+    }
   };
 
   // 1. ฟังก์ชันส่งข้อมูลการจอง (Booking)
@@ -793,6 +936,11 @@ export default function App() {
     formData.append('checkIn', format(checkIn, 'yyyy-MM-dd'));
     formData.append('checkOut', format(checkOut, 'yyyy-MM-dd'));
     formData.append('totalPrice', calculateTotalPrice().toString());
+    if (appliedDiscount) {
+      formData.append('discountCode', appliedDiscount.code);
+      formData.append('discountAmount', appliedDiscount.amount.toString());
+      formData.append('discountType', appliedDiscount.type);
+    }
     formData.append('lineId', urlUserId);
     formData.append('facebookId', facebookId);
     formData.append('socialId', socialId);
@@ -1106,6 +1254,13 @@ export default function App() {
                   className={`group relative bg-white rounded-[2rem] overflow-hidden shadow-sm hover:shadow-2xl hover:shadow-accent/5 transition-all duration-500 border border-black/5 ${selectedRoom?.id === room.id ? 'ring-2 ring-accent ring-offset-4' : 'hover:border-accent/30'}`}
                 >
                   <div className="relative h-72 overflow-hidden">
+                    {(roomStatuses[room.name.trim()] === "จองแล้ว" || 
+                      (bookedDates[room.name.trim()]?.some(date => isSameDay(date, today)))) && (
+                      <div className="absolute top-6 left-6 bg-red-500 text-white px-4 py-2 rounded-full text-[10px] font-bold shadow-lg z-10 font-sans flex items-center gap-2 animate-pulse">
+                        <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                        จอง
+                      </div>
+                    )}
                     <img 
                       src={getDirectLink(room.image)} 
                       alt={room.name} 
@@ -1267,6 +1422,12 @@ export default function App() {
                         endDate={checkOut}
                         minDate={today}
                         excludeDates={selectedRoom ? bookedDates[selectedRoom.name.trim()] || [] : []}
+                        dayClassName={date => {
+                          const roomName = selectedRoom?.name?.trim();
+                          if (!roomName) return '';
+                          const booked = bookedDates[roomName] || [];
+                          return booked.some(bookedDate => isSameDay(bookedDate, date)) ? 'react-datepicker__day--booked' : '';
+                        }}
                         placeholderText="เลือกวันที่เช็คอิน"
                         className="datepicker-input"
                         wrapperClassName="w-full"
@@ -1292,6 +1453,12 @@ export default function App() {
                         endDate={checkOut}
                         minDate={checkIn || today}
                         excludeDates={selectedRoom ? bookedDates[selectedRoom.name.trim()] || [] : []}
+                        dayClassName={date => {
+                          const roomName = selectedRoom?.name?.trim();
+                          if (!roomName) return '';
+                          const booked = bookedDates[roomName] || [];
+                          return booked.some(bookedDate => isSameDay(bookedDate, date)) ? 'react-datepicker__day--booked' : '';
+                        }}
                         placeholderText="เลือกวันที่เช็คเอาท์"
                         className="datepicker-input"
                         wrapperClassName="w-full"
@@ -1354,11 +1521,55 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* Discount Code */}
+                <div className="bg-slate-50 p-8 rounded-[2.5rem] border border-slate-100">
+                  <div className="flex flex-col sm:flex-row items-end gap-6">
+                    <div className="flex-1 space-y-3 w-full">
+                      <label className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                        โค้ดส่วนลด
+                      </label>
+                      <div className="relative">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-accent" />
+                        <input 
+                          type="text" 
+                          value={couponCode}
+                          onChange={(e) => setCouponCode(e.target.value)}
+                          placeholder="ใส่โค้ดส่วนลดที่นี่"
+                          className="w-full pl-12 pr-4 py-4 rounded-2xl border border-slate-200 focus:ring-1 focus:ring-accent focus:border-accent outline-none transition-all bg-white"
+                        />
+                      </div>
+                    </div>
+                    <button 
+                      type="button"
+                      onClick={handleApplyDiscount}
+                      className="px-8 py-4 bg-accent text-white rounded-2xl font-bold hover:opacity-90 transition-all shadow-lg shadow-accent/20 whitespace-nowrap"
+                    >
+                      ใช้โค้ด
+                    </button>
+                  </div>
+                  {discountError && <p className="text-red-500 text-xs mt-3 ml-1">{discountError}</p>}
+                  {appliedDiscount && (
+                    <div className="mt-4 flex items-center gap-2 text-green-600 bg-green-50 px-4 py-2 rounded-xl border border-green-100 w-fit">
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span className="text-sm font-medium">
+                        ใช้โค้ด {appliedDiscount.code} สำเร็จ! ลดไป {appliedDiscount.type === 'percent' ? `${appliedDiscount.amount}%` : `฿${appliedDiscount.amount.toLocaleString()}`}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
                 {/* Total Price & Submit */}
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-10 pt-12 border-t border-slate-100">
                   <div className="text-center sm:text-left">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">ยอดรวมทั้งหมด</p>
-                    <p className="text-4xl font-sans font-semibold text-primary">฿{calculateTotalPrice().toLocaleString()}</p>
+                    <div className="flex flex-col">
+                      {appliedDiscount && (
+                        <p className="text-xs text-slate-400 line-through mb-1">
+                          ฿{(calculateTotalPrice() / (appliedDiscount.type === 'percent' ? (1 - appliedDiscount.amount / 100) : 1) + (appliedDiscount.type === 'fixed' ? appliedDiscount.amount : 0)).toLocaleString()}
+                        </p>
+                      )}
+                      <p className="text-4xl font-sans font-semibold text-primary">฿{calculateTotalPrice().toLocaleString()}</p>
+                    </div>
                   </div>
 
                   <button 

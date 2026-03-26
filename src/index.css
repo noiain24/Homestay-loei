@@ -65,23 +65,21 @@ h1, h2, h3, h4, .font-serif {
 }
 
 .react-datepicker__day--booked {
-  background-color: #F3F4F6 !important;
-  color: #9CA3AF !important;
+  background-color: #FEF2F2 !important;
+  color: #EF4444 !important;
   border-radius: 50% !important;
-  position: relative;
+  font-weight: 700 !important;
   cursor: not-allowed !important;
 }
 
-.react-datepicker__day--booked::after {
-  content: 'full';
-  position: absolute;
-  bottom: 4px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 6px;
-  font-weight: 700;
-  color: #9CA3AF;
-  text-transform: uppercase;
+.react-datepicker__day--booked:hover {
+  background-color: #FEE2E2 !important;
+}
+
+/* Ensure disabled booked dates also show red */
+.react-datepicker__day--disabled.react-datepicker__day--booked {
+  color: #EF4444 !important;
+  opacity: 1 !important;
 }
 
 .datepicker-input {
