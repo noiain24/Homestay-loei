@@ -470,14 +470,29 @@ export default function App() {
   }, []);
 
   // Fetch Room Statuses from GAS (Google Apps Script)
-  const updateRoomButtons = async () => {
+  const updateRoomButtons = async (retryCount = 0) => {
     try {
-      console.log(`[${new Date().toISOString()}] Attempting to fetch room status from: ${ROOM_STATUS_WEBHOOK_URL}`);
-      const response = await fetch(ROOM_STATUS_WEBHOOK_URL);
+      console.log(`[${new Date().toISOString()}] Attempting to fetch room status from: ${ROOM_STATUS_WEBHOOK_URL} (Attempt ${retryCount + 1})`);
+      
+      // Use an AbortController for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+      
+      const response = await fetch(ROOM_STATUS_WEBHOOK_URL, {
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
       
       if (!response.ok) {
         const errText = await response.text();
         console.warn(`[${new Date().toISOString()}] GAS room status fetch failed with status: ${response.status}. Details: ${errText}`);
+        
+        // Retry on 5xx errors
+        if (response.status >= 500 && retryCount < 2) {
+          console.log(`[${new Date().toISOString()}] Retrying room status fetch due to server error...`);
+          setTimeout(() => updateRoomButtons(retryCount + 1), 3000);
+        }
         return;
       }
       
@@ -541,8 +556,15 @@ export default function App() {
         });
         setRoomStatuses(statusMap);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(`[${new Date().toISOString()}] Error in updateRoomButtons:`, error);
+      
+      // Retry on network errors or timeouts
+      if (retryCount < 2) {
+        const delay = (retryCount + 1) * 3000;
+        console.log(`[${new Date().toISOString()}] Retrying room status fetch in ${delay}ms...`);
+        setTimeout(() => updateRoomButtons(retryCount + 1), delay);
+      }
     }
   };
 

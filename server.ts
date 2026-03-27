@@ -210,14 +210,19 @@ async function startServer() {
     console.log(`[${new Date().toISOString()}] Proxying room status request to GAS: ${GAS_URL}`);
     
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
       const response = await fetch(GAS_URL, {
         method: 'GET',
         headers: { 
           'Accept': 'application/json',
         },
-        redirect: 'follow'
+        redirect: 'follow',
+        signal: controller.signal
       });
       
+      clearTimeout(timeout);
       console.log(`[${new Date().toISOString()}] GAS response status: ${response.status}`);
       
       if (response.ok) {
